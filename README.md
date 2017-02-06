@@ -14,6 +14,7 @@ To install `gophish-cli`, simply run the command:
 ```bash
 git clone --recursive https://github.com/gosecure/gophish-cli
 cd api-client-python
+git checkout stable
 python3 ./setup.py install --user
 ```
 
@@ -171,7 +172,7 @@ $ python3 ./gophish-cli.py stats --targets-ip
 ```
 
 
-## Troubleshooting
+## Known issues
 
 ### Issues with Outlook 365
 
