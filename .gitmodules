@@ -1,7 +1,4 @@
-[submodule "gophish"]
-	path = gophish
-	url = https://github.com/GoSecure/api-client-python
-    branch = stable
 [submodule "api-client-python"]
 	path = api-client-python
 	url = https://github.com/GoSecure/api-client-python
+    branch = stable
