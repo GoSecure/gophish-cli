@@ -176,7 +176,7 @@ $ python3 ./gophish-cli.py stats --targets-ip
 
 ### Issues with Outlook 365
 
-Outlook 365 limit the number of email sent per connection to 30. `GROUP_SIZE` must be set to 30 when using Outlook 365 as a provider.
+Outlook 365 limit the number of email sent per connection to 30. `GROUP_SIZE` must be set to 30 when using this provider.
 
 ### Issues with sendgrid
 
