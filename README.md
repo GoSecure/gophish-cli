@@ -14,7 +14,6 @@ To install `gophish-cli`, simply run the command:
 ```bash
 git clone --recursive https://github.com/gosecure/gophish-cli
 cd api-client-python
-git checkout stable
 python3 ./setup.py install --user
 ```
 
