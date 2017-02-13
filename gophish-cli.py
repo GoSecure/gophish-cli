@@ -37,6 +37,7 @@ import csv
 import json
 import argparse
 from datetime import datetime,timedelta
+from urllib.request import urlopen
 
 from gophish import Gophish
 from gophish.models import *
@@ -102,6 +103,32 @@ def query_yes_no(question, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n').\n")
+
+# Currently using ip-api.com. ISSUE: Ban IP if doing more than 150 requests per minutes.
+# To unban: http://ip-api.com/docs/unban
+#
+# Output format
+#{
+#    "as": "ASxxx Rogers Cable Communications Inc.",
+#    "city": "Toronto",
+#    "country": "Canada",
+#    "countryCode": "CA",
+#    "isp": "Rogers Cable",
+#    "lat": 43.xxx5,
+#    "lon": -79.xxx4,
+#    "org": "Rogers Cable",
+#    "query": "1.2.3.4",
+#    "region": "ON",
+#    "regionName": "Ontario",
+#    "status": "success",
+#    "timezone": "America/Toronto",
+#    "zip": "G1Q"
+#}
+def get_geoip(ip_addr):
+    url = 'http://ip-api.com/json/%s' % ip_addr
+    out = urlopen(url).read()
+    js_out = json.loads(out)
+    return js_out
 
 def timeline_to_csv(filePath, timeline):
     fields = ['email', 'time', 'message']
@@ -414,8 +441,12 @@ def get_ips_from_results(results):
             ips_list[r.ip]=1
     return ips_list
 
-def print_targets_ip(events_filter=None):
-    title = ['IP Address', 'Hit Count']
+def print_targets_ip(events_filter=None, show_geoip=False):
+    if show_geoip:
+        title = ['IP Address', 'Hit Count', 'City', 'Region', 'Timezone']
+    else:
+        title = ['IP Address', 'Hit Count']
+
     ips = get_ips_from_results(get_results(events_filter))
     x = PrettyTable(title)
     x.align['IP Address'] = 'l' 
@@ -424,10 +455,15 @@ def print_targets_ip(events_filter=None):
     for ip,count in ips.items():
         if ip == '':
             ip = 'No IP. Email Sent Only'
-        x.add_row([ip,count])
+        elif show_geoip:
+            js_out = get_geoip(ip)
+            x.add_row([ip,count,js_out['city'],js_out['regionName'],\
+                        js_out['timezone']])
+        else:
+            x.add_row([ip,count])
     print(x.get_string(sortby='Hit Count',reversesort=True))
 
-def print_email_stats(email):
+def print_email_stats(email, show_geoip=False):
     ef = EventsFilter(email=email)
 
     # Print all user timeline
@@ -436,7 +472,7 @@ def print_email_stats(email):
 
     # Print IP addresses used
     print_title('IP addresses used by this user.')
-    print_targets_ip(ef)
+    print_targets_ip(ef,show_geoip=show_geoip)
 
     # Print submitted credentials
     print_title('Credentials sent by this user.')
@@ -565,9 +601,10 @@ types:
 p_stats_epilog = '''\
 example: 
     --targets-ip                      # Dump the list of IP addresses so you can do geolocalisation stats.
-    --targets-ip --details            # Dump the list of IP addresses and the affected users for each of them.
+    --targets-ip --geoip              # Dump the list of IP addresses with geolocation information for each item.
 
-    --email someone@example.org       # Print statistics of this user.
+    --email someone@example.org             # Print statistics of this user.
+    --email someone@example.org --geoip     # Print statistics + geolocation info of this user.
 '''
 p_stats = subparsers.add_parser('stats', description=p_stats_desc, epilog=p_stats_epilog, 
                               formatter_class=argparse.RawDescriptionHelpFormatter, 
@@ -579,8 +616,8 @@ p_stats_action.add_argument('--email', action='store', dest='email', \
                      help='Get statistics of a single email address')
 
 p_stats_param = p_stats.add_argument_group("Action Parameters")
-p_stats_param.add_argument('--details', action='store_true', dest='details', default=None, \
-                          help='Add details to the list such as the list of targets for every IP. NOT IMPLEMENTED YET.')
+p_stats_param.add_argument('--geoip', action='store_true', dest='geoip', default=None, \
+                          help='Show geolocation information.')
 
 args = parser.parse_args()
 
@@ -618,9 +655,9 @@ elif args.action == 'campaign':
         parser.print_help()
 elif args.action == 'stats':
     if args.targets_ip:
-        print_targets_ip()
+        print_targets_ip(show_geoip=args.geoip)
     elif args.email:
-        print_email_stats(args.email)
+        print_email_stats(args.email, show_geoip=args.geoip)
     else:
         parser.print_help()
 else:
