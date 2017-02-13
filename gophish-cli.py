@@ -52,6 +52,9 @@ if hasattr(config,'GophishClient'):
 else:
     api = Gophish(config.API_KEY,host=config.API_URL)
 
+# Some constants
+BROWSER_MSG = ['Email Opened', 'Clicked Link', 'Submitted Data']
+
 class EventsFilter():
     def __init__(self, email=None, ip=None, group=None):
         self.email = email
@@ -385,7 +388,7 @@ def print_timeline(events_filter=None):
     x.max_width = 40
     x.align['Message'] = 'l' 
     for entry in timeline:
-        if entry.message in ['Clicked Link', 'Submitted Data']:
+        if entry.message in BROWSER_MSG and type(entry.details) is dict:
             source_ip = entry.details['browser']['address']
         else:
             source_ip = None
@@ -432,6 +435,29 @@ def print_creds(events_filter=None):
         x.add_row([row['email'], row['user'], row['pass']])
     print(x.get_string())
 
+def get_ips_from_timeline(timeline, incl_geoip=False):
+    ips_list = {}
+    for entry in timeline:
+        # Check only messages that have an IP address.
+        # e.g. Not "Email Sent" events.
+        if entry.message in BROWSER_MSG and type(entry.details) is dict:
+            ip = entry.details['browser']['address']
+
+            if ip in ips_list.keys():
+                ips_list[ip]['count']+=1
+    
+            else:
+                ips_list[ip] = {}
+                ips_list[ip]['count'] = 1
+    
+                if incl_geoip:
+                    js_out = get_geoip(ip)
+                    ips_list[ip]['geoip_city'] = js_out['city']
+                    ips_list[ip]['geoip_region'] = js_out['regionName']
+                    ips_list[ip]['geoip_timezone'] = js_out['timezone']
+
+    return ips_list
+
 def get_ips_from_results(results, incl_geoip=False, incl_users=False):
     ips_list = {}
     for r in results:
@@ -455,7 +481,15 @@ def get_ips_from_results(results, incl_geoip=False, incl_users=False):
 
     return ips_list
 
-def print_targets_ip(events_filter=None, show_geoip=False, show_users=False):
+# -- Warning --
+# Parameter "from_timeline" will determine if the stats are generated from the
+# timeline instead of the results. Here is what you need to know.
+#
+# timeline: May contains duplicate so it is undesirable for global statistics
+# results: Will not contains duplicate. Seems to be the last IP used by the user. 
+#          Not useful for analysis of a single user
+#
+def print_targets_ip(events_filter=None, from_timeline=False, show_geoip=False, show_users=False):
     if show_geoip:
         title = ['IP Address', 'Hit Count', 'City', 'Region', 'Timezone']
     else:
@@ -463,8 +497,11 @@ def print_targets_ip(events_filter=None, show_geoip=False, show_users=False):
     if show_users:
         title.append('Users')
 
-    ips = get_ips_from_results(get_results(events_filter), incl_geoip=show_geoip,
-                              incl_users=show_users)
+    if from_timeline:
+        ips = get_ips_from_timeline(get_timelines(events_filter), incl_geoip=show_geoip)
+    else:
+        ips = get_ips_from_results(get_results(events_filter), incl_geoip=show_geoip,
+                                  incl_users=show_users)
     x = PrettyTable(title)
     x.align['IP Address'] = 'l' 
     if show_geoip:
@@ -500,7 +537,7 @@ def print_email_stats(email, show_geoip=False):
 
     # Print IP addresses used
     print_title('IP addresses used by this user.')
-    print_targets_ip(ef,show_geoip=show_geoip)
+    print_targets_ip(ef,from_timeline=True,show_geoip=show_geoip)
 
     # Print submitted credentials
     print_title('Credentials sent by this user.')
