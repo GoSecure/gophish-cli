@@ -432,39 +432,63 @@ def print_creds(events_filter=None):
         x.add_row([row['email'], row['user'], row['pass']])
     print(x.get_string())
 
-def get_ips_from_results(results):
+def get_ips_from_results(results, incl_geoip=False, incl_users=False):
     ips_list = {}
     for r in results:
         if r.ip in ips_list.keys():
-            ips_list[r.ip]+=1
+            ips_list[r.ip]['count']+=1
+
+            if incl_users:
+                ips_list[r.ip]['emails'].append(r.email)
         else:
-            ips_list[r.ip]=1
+            ips_list[r.ip] = {}
+            ips_list[r.ip]['count'] = 1
+
+            if incl_geoip:
+                js_out = get_geoip(r.ip)
+                ips_list[r.ip]['geoip_city'] = js_out['city']
+                ips_list[r.ip]['geoip_region'] = js_out['regionName']
+                ips_list[r.ip]['geoip_timezone'] = js_out['timezone']
+
+            if incl_users:
+                ips_list[r.ip]['emails'] = [r.email]
+
     return ips_list
 
-def print_targets_ip(events_filter=None, show_geoip=False):
+def print_targets_ip(events_filter=None, show_geoip=False, show_users=False):
     if show_geoip:
         title = ['IP Address', 'Hit Count', 'City', 'Region', 'Timezone']
     else:
         title = ['IP Address', 'Hit Count']
+    if show_users:
+        title.append('Users')
 
-    ips = get_ips_from_results(get_results(events_filter))
+    ips = get_ips_from_results(get_results(events_filter), incl_geoip=show_geoip,
+                              incl_users=show_users)
     x = PrettyTable(title)
     x.align['IP Address'] = 'l' 
     if show_geoip:
         x.align['City'] = 'l'
         x.align['Region'] = 'l'
         x.align['Timezone'] = 'l'
+    if show_users:
+        x.align['Users'] = 'l'
     x.padding_width = 1 
-    x.max_width = 40
-    for ip,count in ips.items():
+    x.max_width = 100
+    for ip,ip_info in ips.items():
+        row = []
         if ip == '':
             ip = 'No IP. Email Sent Only'
-        elif show_geoip:
-            js_out = get_geoip(ip)
-            x.add_row([ip,count,js_out['city'],js_out['regionName'],\
-                        js_out['timezone']])
-        else:
-            x.add_row([ip,count])
+
+        row.append(ip)
+        for key,value in ip_info.items():
+            if key == 'emails':
+                row.append(' '.join(value))
+            else:
+                row.append(value)
+
+        if len(row) > 0:
+            x.add_row(row)
     print(x.get_string(sortby='Hit Count',reversesort=True))
 
 def print_email_stats(email, show_geoip=False):
@@ -606,6 +630,7 @@ p_stats_epilog = '''\
 example: 
     --targets-ip                      # Dump the list of IP addresses so you can do geolocalisation stats.
     --targets-ip --geoip              # Dump the list of IP addresses with geolocation information for each item.
+    --targets-ip --users              # Dump the list of IP addresses and their corresponding users.
 
     --email someone@example.org             # Print statistics of this user.
     --email someone@example.org --geoip     # Print statistics + geolocation info of this user.
@@ -622,6 +647,8 @@ p_stats_action.add_argument('--email', action='store', dest='email', \
 p_stats_param = p_stats.add_argument_group("Action Parameters")
 p_stats_param.add_argument('--geoip', action='store_true', dest='geoip', default=None, \
                           help='Show geolocation information.')
+p_stats_param.add_argument('--users', action='store_true', dest='users', default=None, \
+                          help='Show associated users.')
 
 args = parser.parse_args()
 
@@ -659,7 +686,7 @@ elif args.action == 'campaign':
         parser.print_help()
 elif args.action == 'stats':
     if args.targets_ip:
-        print_targets_ip(show_geoip=args.geoip)
+        print_targets_ip(show_geoip=args.geoip, show_users=args.users)
     elif args.email:
         print_email_stats(args.email, show_geoip=args.geoip)
     else:
