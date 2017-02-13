@@ -532,7 +532,7 @@ def print_email_stats(email, show_geoip=False):
     ef = EventsFilter(email=email)
 
     # Print all user timeline
-    print_title('All user timeline.')
+    print_title('User timeline.')
     print_timeline(ef)
 
     # Print IP addresses used
