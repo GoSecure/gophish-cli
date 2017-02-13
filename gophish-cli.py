@@ -51,8 +51,21 @@ if hasattr(config,'GophishClient'):
 else:
     api = Gophish(config.API_KEY,host=config.API_URL)
 
+class EventsFilter():
+    def __init__(self, email=None, ip=None, group=None):
+        self.email = email
+        self.ip = ip
+        self.group = group
+
 def print_info(msg):
     print('[-] ' + msg)
+
+def print_warning(msg):
+    print('[-WARNING-] ' +msg)
+
+def print_title(msg):
+    print('')
+    print('[] ' + msg)
 
 def print_debug(msg):
     if DEBUG:
@@ -284,21 +297,73 @@ def get_campaigns(prefix=None):
             campaigns_out.append(c)
     return campaigns_out
 
-def get_timelines():
+# Timeline entry format:
+#{
+#    'payload': {
+#        '__original_url': ['https://someurl.com/'],
+#        'btnSubmit': ['Log In'],
+#        'hidLang': ['E'],
+#        'rid': ['ea6612b9d939ffa1aaaaacc0a7bb4991b38aa3b60db2a541cab7d32a4f600b19'],
+#        'selLanguage': ['E'],
+#        'selRegion': ['2'],
+#        'txtPassword': ['somepass'],
+#        'txtUsername': ['someuser']
+#    },
+#    'browser': {
+#        'address': '1.2.3.4',
+#        'user-agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36'
+#    }
+#}
+def filter_timeline(timeline, events_filter):
+    out = []
+    for entry in timeline:
+        if events_filter.email and entry.email == events_filter.email:
+            out.append(entry)
+        # TODO: Support other type of filtering.
+    return out
+
+def filter_results(results, events_filter):
+    out = []
+    for entry in results:
+        if events_filter.email and entry.email == events_filter.email:
+            out.append(entry)
+        # TODO: Support other type of filtering.
+    return out
+
+def get_timelines(events_filter=None):
     timeline = []
     campaigns = get_campaigns(config.CAMPAIGN_PREFIX)
     print_debug('Getting %i campaign timelines for %s' % (len(campaigns),config.CAMPAIGN_NAME))
     for c in campaigns:
         timeline += c.timeline
+    if events_filter is not None:
+        timeline = filter_timeline(timeline, events_filter)
     return timeline
 
-def get_results():
+def get_results(events_filter=None):
     results = []
     campaigns = get_campaigns(config.CAMPAIGN_PREFIX)
     print_debug('Getting %i campaign results for %s' % (len(campaigns),config.CAMPAIGN_NAME))
     for c in campaigns:
         results += c.results
+    if events_filter is not None:
+        results = filter_results(results, events_filter)
     return results
+
+def print_timeline(events_filter=None):
+    timeline = get_timelines(events_filter)
+    title = ['Email', 'Time', 'Message', 'Source IP']
+    x = PrettyTable(title)
+    x.padding_width = 1 
+    x.max_width = 40
+    x.align['Message'] = 'l' 
+    for entry in timeline:
+        if entry.message in ['Clicked Link', 'Submitted Data']:
+            source_ip = entry.details['browser']['address']
+        else:
+            source_ip = None
+        x.add_row([entry.email, entry.time, entry.message, source_ip])
+    print(x.get_string(sortby='Time'))
 
 def get_creds_from_timeline(timeline, userField=config.LP_USER_FIELD, 
                             passField=config.LP_PWD_FIELD):
@@ -312,6 +377,8 @@ def get_creds_from_timeline(timeline, userField=config.LP_USER_FIELD,
            creds['user'] = entry.details['payload'][userField][0]
            creds['pass'] = entry.details['payload'][passField][0]
            creds_list.append(creds)
+        elif entry.message == 'Submitted Data':
+            print_warning('Invalid submitted data found. Check LP_USER_FIELD and LP_PWD_FIELD in config.py')
     return creds_list
 
 def save_campaigns():
@@ -325,9 +392,9 @@ def save_campaigns():
     print_info('Exported %i credentials to %s.' 
             % (len(creds), config.CREDS_PATH))
 
-def print_creds():
+def print_creds(events_filter=None):
     title = ['Email', 'User', 'Pass']
-    creds = get_creds_from_timeline(get_timelines())
+    creds = get_creds_from_timeline(get_timelines(events_filter))
     x = PrettyTable(title)
     x.align['Email'] = 'l' 
     x.align['User'] = 'l' 
@@ -347,9 +414,9 @@ def get_ips_from_results(results):
             ips_list[r.ip]=1
     return ips_list
 
-def print_targets_ip():
+def print_targets_ip(events_filter=None):
     title = ['IP Address', 'Hit Count']
-    ips = get_ips_from_results(get_results())
+    ips = get_ips_from_results(get_results(events_filter))
     x = PrettyTable(title)
     x.align['IP Address'] = 'l' 
     x.padding_width = 1 
@@ -359,6 +426,21 @@ def print_targets_ip():
             ip = 'No IP. Email Sent Only'
         x.add_row([ip,count])
     print(x.get_string(sortby='Hit Count',reversesort=True))
+
+def print_email_stats(email):
+    ef = EventsFilter(email=email)
+
+    # Print all user timeline
+    print_title('All user timeline.')
+    print_timeline(ef)
+
+    # Print IP addresses used
+    print_title('IP addresses used by this user.')
+    print_targets_ip(ef)
+
+    # Print submitted credentials
+    print_title('Credentials sent by this user.')
+    print_creds(ef)
 
 
 # Get args
@@ -485,6 +567,7 @@ example:
     --targets-ip                      # Dump the list of IP addresses so you can do geolocalisation stats.
     --targets-ip --details            # Dump the list of IP addresses and the affected users for each of them.
 
+    --email someone@example.org       # Print statistics of this user.
 '''
 p_stats = subparsers.add_parser('stats', description=p_stats_desc, epilog=p_stats_epilog, 
                               formatter_class=argparse.RawDescriptionHelpFormatter, 
@@ -492,6 +575,8 @@ p_stats = subparsers.add_parser('stats', description=p_stats_desc, epilog=p_stat
 p_stats_action = p_stats.add_argument_group("Action")
 p_stats_action.add_argument('--targets-ip', action='store_true', dest='targets_ip', \
                      help='Get a list of targets IP addresses.')
+p_stats_action.add_argument('--email', action='store', dest='email', \
+                     help='Get statistics of a single email address')
 
 p_stats_param = p_stats.add_argument_group("Action Parameters")
 p_stats_param.add_argument('--details', action='store_true', dest='details', default=None, \
@@ -534,6 +619,8 @@ elif args.action == 'campaign':
 elif args.action == 'stats':
     if args.targets_ip:
         print_targets_ip()
+    elif args.email:
+        print_email_stats(args.email)
     else:
         parser.print_help()
 else:
