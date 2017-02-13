@@ -450,6 +450,10 @@ def print_targets_ip(events_filter=None, show_geoip=False):
     ips = get_ips_from_results(get_results(events_filter))
     x = PrettyTable(title)
     x.align['IP Address'] = 'l' 
+    if show_geoip:
+        x.align['City'] = 'l'
+        x.align['Region'] = 'l'
+        x.align['Timezone'] = 'l'
     x.padding_width = 1 
     x.max_width = 40
     for ip,count in ips.items():
