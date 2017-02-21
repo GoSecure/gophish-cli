@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 '''
-Gophish command line interface to quickly setup a campaign.
+Class to test harvested usernames and passwords on a Outlook Web Access (OWA)
 
 @author: Martin Dubé
 @organization: Gosecure inc.
