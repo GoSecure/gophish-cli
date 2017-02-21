@@ -2,3 +2,6 @@
 	path = api-client-python
 	url = https://github.com/GoSecure/api-client-python
 	branch = stable
+[submodule "exchangelib"]
+	path = exchangelib
+	url = https://github.com/ecederstrand/exchangelib/

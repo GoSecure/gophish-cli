@@ -20,6 +20,13 @@ cd ..
 pip3 install -r requirements.txt --user
 ```
 
+To test harvested credentials on OWA, you will also need to configure the [exchangelib](https://github.com/ecederstrand/exchangelib/) submodule.
+
+```bash
+cd exchangelib
+python3 ./setup.py install --user
+```
+
 It is currently using a forked version of the [API library](https://github.com/gosecure/api-client-python/) for development purpose.
 
 
@@ -87,51 +94,32 @@ Do you want to continue? [y/N] y
 ```
 
 ## Help
-```
-$ python3 ./gophish-cli.py campaign -h       
-usage: gophish-cli.py campaign [-h] [--start] [--complete] [--delete] [--list]
-                               [--results] [--print-creds] [--name STR]
-                               [--id UINT] [--prefix STR] [--new-groups]
-                               [--delete-groups]
 
-types:
-    UINT    Unsigned Integer value.
-    STR     String.
-    FILE    Path to a file.
+```
+$ python3 ./gophish-cli.py -h               
+usage: gophish-cli.py [-h] [-v] [-c CONFIG] [-d]
+                      {group,campaign,creds,stats} ...
+
+Gophish cli. Use this tool to quickly setup a phishing campaign using your
+gophish infrastructure.
+
+positional arguments:
+  {group,campaign,creds,stats}
+    group               Manage groups.
+    campaign            Manage campaigns.
+    creds               Manage credentials.
+    stats               Manage statss.
 
 optional arguments:
-  -h, --help       show this help message and exit
-
-Action:
-  --start          Start a campaign.
-  --complete       Complete a campaign.
-  --delete         Delete a campaign.
-  --list, -l       List campaigns.
-  --results        Download and save results.
-  --print-creds    Print credentials.
-
-Action Parameters:
-  --name STR       For --delete only. A campaign name to delete. NOT
-                   IMPLEMENTED YET.
-  --id UINT        For --delete only. A campaign id to delete. NOT IMPLEMENTED
-                   YET
-  --prefix STR     A prefix filter. Can be used with --list and --delete. NOT
-                   IMPLEMENTED YET.
-  --new-groups     Import new groups for the campaign.
-  --delete-groups  Delete all groups with the same prefix.
-
-example: 
-    --start                           # Start a campaign. All parameters are in the config.py file.
-    --start --new-groups              # Upload groups and then start the campaign. See config.py.
-    --complete                        # End a campaign. All parameters are in the config.py file.
-
-    --delete                          # Delete all batches based on config.py
-
-    --list                            # List all campaigns of the database
-
-    --results                         # Download and save Phishing results (Timeline + Credentials).
-    --print-creds                     # Print the credentials retrieved
+  -h, --help            show this help message and exit
+  -v, --version         show program's version number and exit
+  -c CONFIG, --config CONFIG
+                        Alternative config file. Default is config.py (Not
+                        implemented yet)
+  -d, --debug           Run the tool in debug mode
 ```
+
+Every positional arguments have its own help page. For example: `./gophish-cli.py campaign -h`. Read them for more details. 
 
 
 ## Post-campaign useful commands
@@ -155,6 +143,25 @@ $ python3 ./gophish-cli.py campaign --print-creds
 | somebody@gouv.qc.ca | lddoei       | Winter2017 |
 | ...                 | ...          | ...        |
 +---------------------+--------------+------------+
+```
+
+
+To test credentials by using OWA
+
+```
+$ python3 ./gophish-cli.py creds --test-owa
+[-] **WARNING**
+[-] Too many attempts could lock accounts. Be easy with this feature.
+[-]
+[-] Preparing to test credentials on OWA
+[-]   Campaign Name: Mart
+[-]   OWA Domain: LAB
+[-]   OWA Server: owa.lab.local
+[-]   Credentials count: 123
+Do you want to continue? [y/N] y
+LAB\user1 - Fall2008: Successful login
+LAB\user2 - Milhouse44$: Failed login
+...
 ```
 
 
