@@ -198,6 +198,7 @@ def create_groups():
     print_info('  File Path: %s' % config.EMAILS_PATH)
     print_info('  Batch size: %i' % config.GROUP_SIZE)
     print_info('  Group count: %i' % len(group_to_create))
+    print_info('  Email count: %i' % i)
     ret = query_yes_no('Do you want to continue?',default='no')
 
     if not ret:
