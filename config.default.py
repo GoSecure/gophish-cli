@@ -68,6 +68,10 @@ GROUP_SIZE = 50
 START_INTERVAL = 1    # Unit = minutes. Default=1. Increase when you have more than 10 batch.
 BATCH_INTERVAL = 1    # Unit = minutes
 
+# Owa login testing settings
+OWA_DOMAIN = 'DOMAIN'
+OWA_SERVER = 'outlook.example.com'
+
 #
 # Step 3: Things that should not change for most users
 #

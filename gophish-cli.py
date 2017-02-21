@@ -43,6 +43,7 @@ from gophish import Gophish
 from gophish.models import *
 from prettytable import PrettyTable
 
+from modules.owa import OwaCredsTester
 import config
 
 DEBUG = False
@@ -60,6 +61,20 @@ class EventsFilter():
         self.email = email
         self.ip = ip
         self.group = group
+
+class Credentials():
+    def __init__(self, email=None, username=None, password=None):
+        self.email = email
+        self.username = username
+        self.password = password
+
+    def to_list(self):
+        return [self.email, self.username, self.password]
+
+    def to_dict(self):
+        return {'email': self.email,
+                'username': self.username,
+                'password': self.password}
 
 def print_info(msg):
     print('[-] ' + msg)
@@ -154,7 +169,7 @@ def timeline_to_csv(filePath, timeline):
     csvfile.flush()
 
 def creds_to_csv(filePath, creds_list):
-    fields = ['email', 'user', 'pass']
+    fields = ['email', 'username', 'password']
 
     # Setup csv writer
     csvfile = open(filePath, 'w', newline='')
@@ -164,7 +179,7 @@ def creds_to_csv(filePath, creds_list):
     # Create dict with only desired fields
     # Write a row with this dict
     for creds in creds_list:
-        writer.writerow(creds)
+        writer.writerow(creds.to_dict())
         creds = None
 
     csvfile.flush()
@@ -403,10 +418,9 @@ def get_creds_from_timeline(timeline, userField=config.LP_USER_FIELD,
         if entry.message == 'Submitted Data' \
             and userField in entry.details['payload'] \
             and passField in entry.details['payload']:
-           creds = {}
-           creds['email'] = entry.email
-           creds['user'] = entry.details['payload'][userField][0]
-           creds['pass'] = entry.details['payload'][passField][0]
+           creds = Credentials(entry.email, 
+                               entry.details['payload'][userField][0],
+                               entry.details['payload'][passField][0])
            creds_list.append(creds)
         elif entry.message == 'Submitted Data':
             print_warning('Invalid submitted data found. Check LP_USER_FIELD and LP_PWD_FIELD in config.py')
@@ -425,16 +439,34 @@ def save_campaigns():
 
 def print_creds(events_filter=None):
     title = ['Email', 'User', 'Pass']
-    creds = get_creds_from_timeline(get_timelines(events_filter))
+    creds_list = get_creds_from_timeline(get_timelines(events_filter))
     x = PrettyTable(title)
     x.align['Email'] = 'l' 
     x.align['User'] = 'l' 
     x.align['Pass'] = 'l' 
     x.padding_width = 1 
     x.max_width = 40
-    for row in creds:
-        x.add_row([row['email'], row['user'], row['pass']])
+    for creds in creds_list:
+        x.add_row(creds.to_list())
     print(x.get_string())
+
+def test_creds_owa(events_filter=None):
+    creds_list = get_creds_from_timeline(get_timelines(events_filter))
+
+    print_info('**WARNING**')
+    print_info('Too many attempts could lock accounts. Be easy with this feature.')
+    print_info('')
+    print_info('Preparing to test credentials on OWA')
+    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    print_info('  OWA Domain: %s' % config.OWA_DOMAIN)
+    print_info('  OWA Server: %s' % config.OWA_SERVER)
+    print_info('  Credentials count: %i' % len(creds_list))
+    ret = query_yes_no('Do you want to continue?',default='no')
+    if not ret:
+        return
+
+    odt = OwaCredsTester(creds_list, config.OWA_DOMAIN, config.OWA_SERVER)
+    odt.test_logins()
 
 def get_ips_from_timeline(timeline, incl_geoip=False):
     ips_list = {}
@@ -623,7 +655,6 @@ example:
     --list --prefix 'meh_'            # List campaigns that starts with 'meh_'
 
     --results                         # Download and save Phishing results (Timeline + Credentials).
-    --print-creds                     # Print the credentials retrieved
 '''
 p_campaign = subparsers.add_parser('campaign', description=p_campaign_desc, epilog=p_campaign_epilog, 
                               formatter_class=argparse.RawDescriptionHelpFormatter, 
@@ -639,8 +670,6 @@ p_campaign_action.add_argument('--list', '-l', action='store_true', dest='list',
                      help='List campaigns.')
 p_campaign_action.add_argument('--results', action='store_true', dest='results', \
                      help='Download and save results.')
-p_campaign_action.add_argument('--print-creds', action='store_true', dest='print_creds', \
-                     help='Print credentials.')
 
 p_campaign_param = p_campaign.add_argument_group("Action Parameters")
 p_campaign_param.add_argument('--name', action='store', dest='name', default=None, \
@@ -656,6 +685,24 @@ p_campaign_param.add_argument('--new-groups', action='store_true', dest='new_gro
                           help='Import new groups for the campaign.')
 p_campaign_param.add_argument('--delete-groups', action='store_true', dest='delete_groups', 
                           help='Delete all groups with the same prefix.')
+
+# Creds
+p_creds_epilog = '''\
+example: 
+    --print                                 # Print the credentials.
+
+    --test-owa                           # Test credentials on OWA. 
+    --test-smtp                          # NOT IMPLEMENTED YET.
+'''
+p_creds = subparsers.add_parser('creds', epilog=p_creds_epilog, 
+                              formatter_class=argparse.RawDescriptionHelpFormatter, 
+                              help='Manage credentials.')
+p_creds_action = p_creds.add_argument_group("Action")
+p_creds_action.add_argument('--print', action='store_true', dest='print_creds', \
+                     help='Print the credentials.')
+p_creds_action.add_argument('--test-owa', action='store_true', dest='test_creds_owa', \
+                     help='Test the credentials on OWA.')
+
 
 # Stats
 p_stats_desc = '''\
@@ -718,8 +765,13 @@ elif args.action == 'campaign':
         print_campaigns()
     elif args.results:
         save_campaigns()
-    elif args.print_creds:
+    else:
+        parser.print_help()
+elif args.action == 'creds':
+    if args.print_creds:
         print_creds()
+    elif args.test_creds_owa:
+        test_creds_owa()
     else:
         parser.print_help()
 elif args.action == 'stats':
