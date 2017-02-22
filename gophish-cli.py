@@ -426,6 +426,15 @@ def save_campaigns():
     print_info('Exported %i credentials to %s.' 
             % (len(creds), config.CREDS_PATH))
 
+    campaigns = get_campaigns(config.CAMPAIGN_PREFIX)
+    campaigns_dict = []
+    for campaign in campaigns:
+        campaigns_dict.append(campaign.as_dict())
+    with open(config.JSON_PATH, 'w') as outfile:
+        json.dump(campaigns_dict, outfile)
+    print_info('Exported %i campaigns to %s.' 
+            % (len(campaigns), config.JSON_PATH))
+
 def print_creds(events_filter=None):
     title = ['Email', 'User', 'Pass']
     creds_list = get_creds_from_timeline(get_timelines(events_filter))
