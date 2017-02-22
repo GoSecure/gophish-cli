@@ -43,7 +43,10 @@ from gophish import Gophish
 from gophish.models import *
 from prettytable import PrettyTable
 
+from modules.creds import Credentials
 from modules.owa import OwaCredsTester
+from modules.netscaler import NetscalerCredsTester
+
 import config
 
 DEBUG = False
@@ -61,20 +64,6 @@ class EventsFilter():
         self.email = email
         self.ip = ip
         self.group = group
-
-class Credentials():
-    def __init__(self, email=None, username=None, password=None):
-        self.email = email
-        self.username = username
-        self.password = password
-
-    def to_list(self):
-        return [self.email, self.username, self.password]
-
-    def to_dict(self):
-        return {'email': self.email,
-                'username': self.username,
-                'password': self.password}
 
 def print_info(msg):
     print('[-] ' + msg)
@@ -465,8 +454,25 @@ def test_creds_owa(events_filter=None):
     if not ret:
         return
 
-    odt = OwaCredsTester(creds_list, config.OWA_DOMAIN, config.OWA_SERVER)
-    odt.test_logins()
+    owa = OwaCredsTester(creds_list, config.OWA_DOMAIN, config.OWA_SERVER)
+    owa.test_logins()
+
+def test_creds_netscaler(events_filter=None):
+    creds_list = get_creds_from_timeline(get_timelines(events_filter))
+
+    print_info('**WARNING**')
+    print_info('Too many attempts could lock accounts. Be easy with this feature.')
+    print_info('')
+    print_info('Preparing to test credentials on NetScaler')
+    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    print_info('  Netscaler Server: %s' % config.NETSCALER_SERVER)
+    print_info('  Credentials count: %i' % len(creds_list))
+    ret = query_yes_no('Do you want to continue?',default='no')
+    if not ret:
+        return
+
+    nsc = NetscalerCredsTester(creds_list, config.NETSCALER_SERVER)
+    nsc.test_logins()
 
 def get_ips_from_timeline(timeline, incl_geoip=False):
     ips_list = {}
@@ -692,7 +698,7 @@ example:
     --print                                 # Print the credentials.
 
     --test-owa                           # Test credentials on OWA. 
-    --test-smtp                          # NOT IMPLEMENTED YET.
+    --test-netscaler                     # Test credentials on a NetScaler.
 '''
 p_creds = subparsers.add_parser('creds', epilog=p_creds_epilog, 
                               formatter_class=argparse.RawDescriptionHelpFormatter, 
@@ -702,6 +708,8 @@ p_creds_action.add_argument('--print', action='store_true', dest='print_creds', 
                      help='Print the credentials.')
 p_creds_action.add_argument('--test-owa', action='store_true', dest='test_creds_owa', \
                      help='Test the credentials on OWA.')
+p_creds_action.add_argument('--test-netscaler', action='store_true', dest='test_creds_netscaler', \
+                     help='Test the credentials on NetScaler.')
 
 
 # Stats
@@ -772,6 +780,8 @@ elif args.action == 'creds':
         print_creds()
     elif args.test_creds_owa:
         test_creds_owa()
+    elif args.test_creds_netscaler:
+        test_creds_netscaler()
     else:
         parser.print_help()
 elif args.action == 'stats':

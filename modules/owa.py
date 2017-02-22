@@ -42,10 +42,7 @@ import time
 
 import logging
 
-def test_request(arg=None):
-    """Your http request."""
-    time.sleep(2)
-    return arg
+from modules.creds import CredsTester
 
 class Timeout():
     """Timeout class using ALARM signal."""
@@ -65,46 +62,28 @@ class Timeout():
     def raise_timeout(self, *args):
         raise Timeout.Timeout()
 
-class OwaCredsTester():
+class OwaCredsTester(CredsTester):
 
     def __init__(self, creds_list, domain, server, autodiscover=False, timeout=2,
                  verbose=True):
-        self.creds_list = creds_list
+        super(OwaCredsTester, self).__init__(creds_list, server, verbose)
         self.domain = domain
-        self.server = server
         self.autodiscover=autodiscover
         self.timeout = timeout
-        self.verbose = verbose
 
         # This is a temporary hack because the library print too much
         # unwanted details
         logging.disable(logging.CRITICAL)
 
     def _sanitize_username(self, username):
-        # If username contains a \, take only the last part
-        # Example: DOMAIN\user1 become user1
-        if '\\' in username:
-            a = username.split('\\')
-            if len(a) > 1:
-                s = a[-1]
-            else:
-                s = None
-            return s
-
-        # Ignore empty or very small usernames
-        if len(username) < 3:
-            return None
+        username = super(OwaCredsTester, self)._sanitize_username(username)
 
         # We force the use of our domain as people could do typo or write pure shit.
         # TODO: Make this behavior optional as some companies have multiple domains.
-        return '%s\\%s' % (self.domain, username)
-
-    def _sanitize_password(self, password):
-        # Ignore empty or very small passwords
-        if len(password) < 5:
+        if username is not None:
+            return '%s\\%s' % (self.domain, username)
+        else:
             return None
-
-        return password
 
     def _test_login_time_based(self, email, username, password):
         try:

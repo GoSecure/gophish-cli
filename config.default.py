@@ -72,6 +72,9 @@ BATCH_INTERVAL = 1    # Unit = minutes
 OWA_DOMAIN = 'DOMAIN'
 OWA_SERVER = 'outlook.example.com'
 
+# Netscaler login testing settings
+NETSCALER_SERVER = 'vpn.example.com'
+
 #
 # Step 3: Things that should not change for most users
 #
