@@ -20,7 +20,7 @@ cd ..
 pip3 install -r requirements.txt --user
 ```
 
-To test harvested credentials on OWA, you will also need to configure the [exchangelib](https://github.com/ecederstrand/exchangelib/) submodule.
+To test harvested credentials on OWA, you will also need to install the [exchangelib](https://github.com/ecederstrand/exchangelib/) submodule.
 
 ```bash
 cd exchangelib
@@ -108,7 +108,7 @@ positional arguments:
     group               Manage groups.
     campaign            Manage campaigns.
     creds               Manage credentials.
-    stats               Manage statss.
+    stats               Manage stats.
 
 optional arguments:
   -h, --help            show this help message and exit
