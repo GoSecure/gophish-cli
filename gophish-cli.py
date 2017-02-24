@@ -157,22 +157,23 @@ def timeline_to_csv(filePath, timeline):
         row = None
 
     csvfile.flush()
+    print_info('Exported %i timeline entries to %s' % (len(timeline),filePath))
 
 def creds_to_csv(filePath, creds_list):
-    fields = ['email', 'username', 'password']
+    fields = ['email', 'username', 'password', 'is_valid']
 
     # Setup csv writer
     csvfile = open(filePath, 'w', newline='')
     writer = csv.DictWriter(csvfile, fieldnames=fields)
     writer.writeheader()
 
-    # Create dict with only desired fields
     # Write a row with this dict
     for creds in creds_list:
         writer.writerow(creds.to_dict())
         creds = None
 
     csvfile.flush()
+    print_info('Exported %s credentials to %s' % (len(creds_list), filePath))
 
 def create_group(i, batch_ct, campaign_name, targets):
     batch_num = (int)(i/batch_ct)
@@ -419,13 +420,9 @@ def get_creds_from_timeline(timeline, userField=config.LP_USER_FIELD,
 def save_campaigns():
     timeline = get_timelines()
     timeline_to_csv(config.RESULTS_PATH, timeline)
-    print_info('Exported %i timeline entries to %s' 
-            % (len(timeline),config.RESULTS_PATH))
 
     creds = get_creds_from_timeline(timeline)
     creds_to_csv(config.CREDS_PATH, creds)
-    print_info('Exported %i credentials to %s.' 
-            % (len(creds), config.CREDS_PATH))
 
     campaigns = get_campaigns(config.CAMPAIGN_PREFIX)
     campaigns_dict = []
@@ -467,6 +464,7 @@ def test_creds_owa(events_filter=None):
     owa = OwaCredsTester(creds_list, config.OWA_DOMAIN, config.OWA_SERVER,
                         verify_tls=config.VERIFY_TLS)
     owa.test_logins()
+    creds_to_csv(config.CREDS_PATH, creds_list)
 
 def test_creds_netscaler(events_filter=None):
     creds_list = get_creds_from_timeline(get_timelines(events_filter))
@@ -485,6 +483,7 @@ def test_creds_netscaler(events_filter=None):
     nsc = NetscalerCredsTester(creds_list, config.NETSCALER_SERVER,
                         verify_tls=config.VERIFY_TLS)
     nsc.test_logins()
+    creds_to_csv(config.CREDS_PATH, creds_list)
 
 def test_creds_juniper(events_filter=None):
     creds_list = get_creds_from_timeline(get_timelines(events_filter))
@@ -508,6 +507,7 @@ def test_creds_juniper(events_filter=None):
                                config.JUNIPER_REALM,
                                verify_tls=config.VERIFY_TLS)
     nsc.test_logins()
+    creds_to_csv(config.CREDS_PATH, creds_list)
 
 def get_ips_from_timeline(timeline, incl_geoip=False):
     ips_list = {}

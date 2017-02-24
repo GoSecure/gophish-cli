@@ -30,6 +30,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
+import datetime
 
 #
 # Step 1: Gophish configuration
@@ -92,10 +93,13 @@ JUNIPER_REALM = 'bla'
 #
 # Step 3: Things that should not change for most users
 #
+FILE_DATE_FMT = '%Y%m%d_%H%M%S'
+FILE_DATE = datetime.datetime.now().strftime(FILE_DATE_FMT)
+
 CAMPAIGN_NAME_TPL = '%s - Group %i'
 CAMPAIGN_PREFIX = CAMPAIGN_NAME_TPL[:-2] % CAMPAIGN_NAME
 RESULTS_PATH = WORKING_DIR + 'campaign_results_%s.csv' % CAMPAIGN_NAME
-CREDS_PATH = WORKING_DIR + 'campaign_creds_%s.csv' % CAMPAIGN_NAME
+CREDS_PATH = WORKING_DIR + 'campaign_creds_%s_%s.csv' % (FILE_DATE, CAMPAIGN_NAME)
 JSON_PATH = WORKING_DIR + 'campaign_raw_%s.json' % CAMPAIGN_NAME
 
 #

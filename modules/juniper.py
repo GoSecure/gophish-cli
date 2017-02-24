@@ -111,6 +111,7 @@ class JuniperCredsTester(WebCredsTester):
                     #print('Testing: %s - %s - %s' % (username,creds.password))
                     valid = self._test_login(username, password, self.realm)
                     self._print_login_result(valid, username, password)
+                    creds.is_valid = valid
                     tested_usernames.append(username.lower())
                 else:
                     print('Username already tested: %s. Skipping.' % username)

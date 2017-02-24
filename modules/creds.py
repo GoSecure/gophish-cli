@@ -47,14 +47,24 @@ class Credentials():
         self.email = email
         self.username = username
         self.password = password
+        self.is_valid = None
+
+    def get_validity(self):
+        if self.is_valid is None:
+            return 'unknown'
+        elif self.is_valid == True:
+            return 'Success'
+        else:
+            return 'Failed'
 
     def to_list(self):
-        return [self.email, self.username, self.password]
+        return [self.email, self.username, self.password, self.get_validity()]
 
     def to_dict(self):
         return {'email': self.email,
                 'username': self.username,
-                'password': self.password}
+                'password': self.password,
+                'is_valid': self.get_validity()}
 
 class CredsTester(object):
 

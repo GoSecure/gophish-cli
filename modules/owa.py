@@ -119,11 +119,8 @@ class OwaCredsTester(CredsTester):
                 if not (username.lower() in tested_usernames):
                     #print('Testing: %s - %s - %s' % (creds.email,username,creds.password))
                     valid = self._test_login_time_based(creds.email, username, password)
-                    if self.verbose:
-                        if valid:
-                            print('%s - %s: Successful login' % (username, password))
-                        else:
-                            print('%s - %s: Failed login' % (username, password))
+                    self._print_login_result(valid, username, password)
+                    creds.is_valid = valid
                     tested_usernames.append(username.lower())
                 else:
                     print('Username already tested: %s. Skipping.' % username)
