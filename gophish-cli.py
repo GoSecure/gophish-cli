@@ -464,6 +464,7 @@ def test_creds_owa(events_filter=None):
     owa = OwaCredsTester(creds_list, config.OWA_DOMAIN, config.OWA_SERVER,
                         verify_tls=config.VERIFY_TLS)
     owa.test_logins()
+    nsc.print_results()
     creds_to_csv(config.CREDS_PATH, creds_list)
 
 def test_creds_netscaler(events_filter=None):
@@ -483,6 +484,7 @@ def test_creds_netscaler(events_filter=None):
     nsc = NetscalerCredsTester(creds_list, config.NETSCALER_SERVER,
                         verify_tls=config.VERIFY_TLS)
     nsc.test_logins()
+    nsc.print_results()
     creds_to_csv(config.CREDS_PATH, creds_list)
 
 def test_creds_juniper(events_filter=None):
@@ -507,6 +509,7 @@ def test_creds_juniper(events_filter=None):
                                config.JUNIPER_REALM,
                                verify_tls=config.VERIFY_TLS)
     nsc.test_logins()
+    nsc.print_results()
     creds_to_csv(config.CREDS_PATH, creds_list)
 
 def get_ips_from_timeline(timeline, incl_geoip=False):
