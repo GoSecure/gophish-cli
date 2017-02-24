@@ -31,6 +31,17 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
+from urllib.request import HTTPRedirectHandler,HTTPCookieProcessor,\
+                            HTTPSHandler, HTTPErrorProcessor, \
+                            build_opener, install_opener 
+import http.cookiejar
+import ssl
+
+class NoRedirection(HTTPErrorProcessor):
+  def http_response(self, request, response):
+    return response
+  https_response = http_response
+
 class Credentials():
     def __init__(self, email=None, username=None, password=None):
         self.email = email
@@ -47,10 +58,11 @@ class Credentials():
 
 class CredsTester(object):
 
-    def __init__(self, creds_list, server, verbose=True):
+    def __init__(self, creds_list, server, verbose=True, debug=False):
         self.creds_list = creds_list
         self.server = server
         self.verbose = verbose
+        self.debug = debug
 
     def _sanitize_username(self, username):
         # If username contains a \, take only the last part
@@ -75,5 +87,60 @@ class CredsTester(object):
 
         return password
 
+    def _print_login_result(self, valid, username, password):
+        if self.verbose:
+            if valid:
+                print('%s - %s - Successful login' % (username, password))
+            else:
+                print('%s - %s - Failed login' % (username, password))
+
+    def test_logins(self):
+        pass
+
+class WebCredsTester(CredsTester):
+    def __init__(self, creds_list, server, uri='/', verify_tls=True, debug=False):
+        super(WebCredsTester, self).__init__(creds_list, server, debug=debug)
+        self.uri = uri
+        self.verify_tls = verify_tls
+        self._init_urllib()
+
+    def _init_urllib(self):
+        # Initialize a SSL context for all HTTPS calls
+        if self.verify_tls:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_1)
+            context.verify_mode = ssl.CERT_REQUIRED
+            context.check_hostname = True
+            context.load_default_certs()
+        else: 
+            context = ssl.create_default_context()  # Should we enforce TLS 1.1 here?
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+
+        # Cookie Jar
+        self.cj = http.cookiejar.CookieJar()
+
+        # Debugging
+        if self.debug:
+            debuglevel=1
+        else:
+            debuglevel=0
+
+        opener = build_opener(HTTPSHandler(debuglevel=debuglevel, context=context), \
+                              HTTPCookieProcessor(self.cj), 
+                              NoRedirection)
+    
+        install_opener(opener)
+
+    def _get_cookie(self, name):
+        for cookie in self.cj:
+            if cookie.name == name:
+                return cookie
+        return None
+
+    # The actual login test, called for every pair of credentials
+    def _test_login(self, username, password):
+        return False
+
+    # To test the list of credentials
     def test_logins(self):
         pass

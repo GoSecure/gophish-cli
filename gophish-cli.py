@@ -46,6 +46,7 @@ from prettytable import PrettyTable
 from modules.creds import Credentials
 from modules.owa import OwaCredsTester
 from modules.netscaler import NetscalerCredsTester
+from modules.juniper import JuniperCredsTester
 
 import config
 
@@ -463,7 +464,8 @@ def test_creds_owa(events_filter=None):
     if not ret:
         return
 
-    owa = OwaCredsTester(creds_list, config.OWA_DOMAIN, config.OWA_SERVER)
+    owa = OwaCredsTester(creds_list, config.OWA_DOMAIN, config.OWA_SERVER,
+                        verify_tls=config.VERIFY_TLS)
     owa.test_logins()
 
 def test_creds_netscaler(events_filter=None):
@@ -480,7 +482,31 @@ def test_creds_netscaler(events_filter=None):
     if not ret:
         return
 
-    nsc = NetscalerCredsTester(creds_list, config.NETSCALER_SERVER)
+    nsc = NetscalerCredsTester(creds_list, config.NETSCALER_SERVER,
+                        verify_tls=config.VERIFY_TLS)
+    nsc.test_logins()
+
+def test_creds_juniper(events_filter=None):
+    creds_list = get_creds_from_timeline(get_timelines(events_filter))
+
+    print_info('**WARNING**')
+    print_info('Too many attempts could lock accounts. Be easy with this feature.')
+    print_info('')
+    print_info('Preparing to test credentials on Juniper')
+    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    print_info('  Juniper Domain: %s' % config.JUNIPER_DOMAIN)
+    print_info('  Juniper Server: %s' % config.JUNIPER_SERVER)
+    print_info('  Juniper Uri: %s' % config.JUNIPER_URI)
+    print_info('  Juniper Realm: %s' % config.JUNIPER_REALM)
+    print_info('  Credentials count: %i' % len(creds_list))
+    ret = query_yes_no('Do you want to continue?',default='no')
+    if not ret:
+        return
+
+    nsc = JuniperCredsTester(creds_list, config.JUNIPER_SERVER, 
+                               config.JUNIPER_URI, config.JUNIPER_DOMAIN,
+                               config.JUNIPER_REALM,
+                               verify_tls=config.VERIFY_TLS)
     nsc.test_logins()
 
 def get_ips_from_timeline(timeline, incl_geoip=False):
@@ -708,6 +734,7 @@ example:
 
     --test-owa                           # Test credentials on OWA. 
     --test-netscaler                     # Test credentials on a NetScaler.
+    --test-juniper                       # Test credentials on a Juniper.
 '''
 p_creds = subparsers.add_parser('creds', epilog=p_creds_epilog, 
                               formatter_class=argparse.RawDescriptionHelpFormatter, 
@@ -719,6 +746,8 @@ p_creds_action.add_argument('--test-owa', action='store_true', dest='test_creds_
                      help='Test the credentials on OWA.')
 p_creds_action.add_argument('--test-netscaler', action='store_true', dest='test_creds_netscaler', \
                      help='Test the credentials on NetScaler.')
+p_creds_action.add_argument('--test-juniper', action='store_true', dest='test_creds_juniper', \
+                     help='Test the credentials on juniper.')
 
 
 # Stats
@@ -791,6 +820,8 @@ elif args.action == 'creds':
         test_creds_owa()
     elif args.test_creds_netscaler:
         test_creds_netscaler()
+    elif args.test_creds_juniper:
+        test_creds_juniper()
     else:
         parser.print_help()
 elif args.action == 'stats':

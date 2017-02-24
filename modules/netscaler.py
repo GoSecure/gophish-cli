@@ -43,15 +43,15 @@ from modules.creds import CredsTester
 
 class NetscalerCredsTester(CredsTester):
 
-    def __init__(self, creds_list, server, uri='/cgi/login',verify_ssl=True):
+    def __init__(self, creds_list, server, uri='/cgi/login',verify_tls=True):
         super(NetscalerCredsTester, self).__init__(creds_list, server)
         self.uri = uri
-        self.verify_ssl = verify_ssl
+        self.verify_tls = verify_tls
         self._init_urllib()
 
     def _init_urllib(self):
         # Initialize a SSL context for all HTTPS calls
-        if self.verify_ssl:
+        if self.verify_tls:
             context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_1)
             context.verify_mode = ssl.CERT_REQUIRED
             context.check_hostname = True

@@ -68,13 +68,27 @@ GROUP_SIZE = 50
 START_INTERVAL = 1    # Unit = minutes. Default=1. Increase when you have more than 10 batch.
 BATCH_INTERVAL = 1    # Unit = minutes
 
-# Owa login testing settings
+# Verify TLS when testing credentials
+# Default is True
+VERIFY_TLS = True
+
+# Owa login testing settings 
 OWA_DOMAIN = 'DOMAIN'
 OWA_SERVER = 'outlook.example.com'
 
 # Netscaler login testing settings
 NETSCALER_SERVER = 'vpn.example.com'
 
+# Juniper (Secure Access SSL VPN)
+JUNIPER_DOMAIN = 'DOMAIN'
+JUNIPER_SERVER = 'vpn.example.com'
+# HINT: Consider verifying the URI as some organizations have multiple
+#       URIs which are 2FA or 1FA. The default one is often 2FA. 
+#       For istance, /url/ can become /url_XX/, where XX is a number.
+JUNIPER_URI = '/dana-na/auth/url/login.cgi'
+# HINT: Find it in the source code of the login page. Look for a hidden 
+#       input field named "realm".
+JUNIPER_REALM = 'bla'
 #
 # Step 3: Things that should not change for most users
 #
@@ -82,6 +96,7 @@ CAMPAIGN_NAME_TPL = '%s - Group %i'
 CAMPAIGN_PREFIX = CAMPAIGN_NAME_TPL[:-2] % CAMPAIGN_NAME
 RESULTS_PATH = WORKING_DIR + 'campaign_results_%s.csv' % CAMPAIGN_NAME
 CREDS_PATH = WORKING_DIR + 'campaign_creds_%s.csv' % CAMPAIGN_NAME
+JSON_PATH = WORKING_DIR + 'campaign_raw_%s.json' % CAMPAIGN_NAME
 
 #
 # Step 4: Advanced TLS settings
