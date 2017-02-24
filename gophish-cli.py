@@ -175,6 +175,30 @@ def creds_to_csv(filePath, creds_list):
     csvfile.flush()
     print_info('Exported %s credentials to %s' % (len(creds_list), filePath))
 
+def ips_to_csv(filePath, ips):
+    fields = ['IP Address', 'Hit Count', 'City', 'Region', 'Timezone']
+
+    # Setup csv writer
+    csvfile = open(filePath, 'w', newline='')
+    writer = csv.DictWriter(csvfile, fieldnames=fields)
+    writer.writeheader()
+
+    # Convert IPs
+    # TODO: Ugly! Create a TargetIP class.
+    for ip,ip_info in ips.items():
+        row = {}
+        row['IP Address'] = ip
+        row['Hit Count'] = ip_info['count']
+        row['City'] = ip_info['geoip_city']
+        row['Region'] = ip_info['geoip_region']
+        row['Timezone'] = ip_info['geoip_timezone']
+
+        writer.writerow(row)
+        row = None
+
+    csvfile.flush()
+    print_info('Exported %s targets IP to %s' % (len(ips), filePath))
+
 def create_group(i, batch_ct, campaign_name, targets):
     batch_num = (int)(i/batch_ct)
     batch_name = config.CAMPAIGN_NAME_TPL % (campaign_name,batch_num)
@@ -603,6 +627,12 @@ def print_targets_ip(events_filter=None, from_timeline=False, show_geoip=False, 
         if len(row) > 0:
             x.add_row(row)
     print(x.get_string(sortby='Hit Count',reversesort=True))
+
+    # Also save to a file for later reporting.
+    # TODO: This is unclean. 
+    if show_geoip and not show_users:
+       ips_to_csv(config.GEOIP_PATH, ips)
+
 
 def print_email_stats(email, show_geoip=False):
     ef = EventsFilter(email=email)

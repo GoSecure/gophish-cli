@@ -101,6 +101,7 @@ CAMPAIGN_PREFIX = CAMPAIGN_NAME_TPL[:-2] % CAMPAIGN_NAME
 RESULTS_PATH = WORKING_DIR + 'campaign_results_%s.csv' % CAMPAIGN_NAME
 CREDS_PATH = WORKING_DIR + 'campaign_creds_%s_%s.csv' % (FILE_DATE, CAMPAIGN_NAME)
 JSON_PATH = WORKING_DIR + 'campaign_raw_%s.json' % CAMPAIGN_NAME
+GEOIP_PATH = WORKING_DIR + 'campaign_geoip_%s.csv' % CAMPAIGN_NAME
 
 #
 # Step 4: Advanced TLS settings
