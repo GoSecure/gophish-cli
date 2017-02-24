@@ -461,10 +461,9 @@ def test_creds_owa(events_filter=None):
     if not ret:
         return
 
-    owa = OwaCredsTester(creds_list, config.OWA_DOMAIN, config.OWA_SERVER,
-                        verify_tls=config.VERIFY_TLS)
+    owa = OwaCredsTester(creds_list, config.OWA_DOMAIN, config.OWA_SERVER)
     owa.test_logins()
-    nsc.print_results()
+    owa.print_results()
     creds_to_csv(config.CREDS_PATH, creds_list)
 
 def test_creds_netscaler(events_filter=None):
