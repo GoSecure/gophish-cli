@@ -106,7 +106,7 @@ class CredsTester(object):
 
     def print_results(self):
         creds_success = sum([1 for creds in self.creds_list if creds.is_valid])
-        creds_fail = sum([1 for creds in self.creds_list if not creds.is_valid])
+        creds_fail = sum([1 for creds in self.creds_list if creds.is_valid == False])
         creds_unknown = sum([1 for creds in self.creds_list if creds.is_valid is None])
         print('[-] Test results: %s successful, %s fail and %s unknown (duplicate) out of %s.'
               % (creds_success, creds_fail, creds_unknown, len(self.creds_list)))
