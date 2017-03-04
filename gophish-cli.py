@@ -176,7 +176,7 @@ def creds_to_csv(filePath, creds_list):
     print_info('Exported %s credentials to %s' % (len(creds_list), filePath))
 
 def ips_to_csv(filePath, ips):
-    fields = ['IP Address', 'Hit Count', 'City', 'Region', 'Timezone']
+    fields = ['IP Address', 'Hit Count', 'City', 'Region', 'Timezone', 'ISP']
 
     # Setup csv writer
     csvfile = open(filePath, 'w', newline='')
@@ -192,6 +192,7 @@ def ips_to_csv(filePath, ips):
         row['City'] = ip_info['geoip_city']
         row['Region'] = ip_info['geoip_region']
         row['Timezone'] = ip_info['geoip_timezone']
+        row['ISP'] = ip_info['geoip_isp']
 
         writer.writerow(row)
         row = None
@@ -458,12 +459,13 @@ def save_campaigns():
             % (len(campaigns), config.JSON_PATH))
 
 def print_creds(events_filter=None):
-    title = ['Email', 'User', 'Pass']
+    title = ['Email', 'User', 'Pass', 'Is Valid']
     creds_list = get_creds_from_timeline(get_timelines(events_filter))
     x = PrettyTable(title)
     x.align['Email'] = 'l' 
     x.align['User'] = 'l' 
     x.align['Pass'] = 'l' 
+    x.align['Is Valid'] = 'l' 
     x.padding_width = 1 
     x.max_width = 40
     for creds in creds_list:
@@ -551,10 +553,18 @@ def get_ips_from_timeline(timeline, incl_geoip=False):
                 ips_list[ip]['count'] = 1
     
                 if incl_geoip:
-                    js_out = get_geoip(ip)
-                    ips_list[ip]['geoip_city'] = js_out['city']
-                    ips_list[ip]['geoip_region'] = js_out['regionName']
-                    ips_list[ip]['geoip_timezone'] = js_out['timezone']
+                    if ip != '':
+                        js_out = get_geoip(ip)
+                        ips_list[ip]['geoip_city'] = js_out['city']
+                        ips_list[ip]['geoip_region'] = js_out['regionName']
+                        ips_list[ip]['geoip_timezone'] = js_out['timezone']
+                        ips_list[ip]['geoip_isp'] = js_out['isp']
+                    else:
+                        ips_list[ip]['geoip_city'] = ''
+                        ips_list[ip]['geoip_region'] = ''
+                        ips_list[ip]['geoip_timezone'] = ''
+                        ips_list[ip]['geoip_isp'] = ''
+                        
 
     return ips_list
 
@@ -571,10 +581,17 @@ def get_ips_from_results(results, incl_geoip=False, incl_users=False):
             ips_list[r.ip]['count'] = 1
 
             if incl_geoip:
-                js_out = get_geoip(r.ip)
-                ips_list[r.ip]['geoip_city'] = js_out['city']
-                ips_list[r.ip]['geoip_region'] = js_out['regionName']
-                ips_list[r.ip]['geoip_timezone'] = js_out['timezone']
+                if r.ip != '':
+                    js_out = get_geoip(r.ip)
+                    ips_list[r.ip]['geoip_city'] = js_out['city']
+                    ips_list[r.ip]['geoip_region'] = js_out['regionName']
+                    ips_list[r.ip]['geoip_timezone'] = js_out['timezone']
+                    ips_list[r.ip]['geoip_isp'] = js_out['isp']
+                else:
+                    ips_list[r.ip]['geoip_city'] = ''
+                    ips_list[r.ip]['geoip_region'] = ''
+                    ips_list[r.ip]['geoip_timezone'] = ''
+                    ips_list[r.ip]['geoip_isp'] = ''
 
             if incl_users:
                 ips_list[r.ip]['emails'] = [r.email]
@@ -591,7 +608,7 @@ def get_ips_from_results(results, incl_geoip=False, incl_users=False):
 #
 def print_targets_ip(events_filter=None, from_timeline=False, show_geoip=False, show_users=False):
     if show_geoip:
-        title = ['IP Address', 'Hit Count', 'City', 'Region', 'Timezone']
+        title = ['IP Address', 'Hit Count', 'City', 'Region', 'Timezone', 'ISP']
     else:
         title = ['IP Address', 'Hit Count']
     if show_users:
@@ -608,6 +625,7 @@ def print_targets_ip(events_filter=None, from_timeline=False, show_geoip=False, 
         x.align['City'] = 'l'
         x.align['Region'] = 'l'
         x.align['Timezone'] = 'l'
+        x.align['ISP'] = 'l'
     if show_users:
         x.align['Users'] = 'l'
     x.padding_width = 1 
