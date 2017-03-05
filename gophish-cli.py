@@ -35,6 +35,7 @@ SOFTWARE.
 import sys
 import csv
 import json
+import time
 import argparse
 from datetime import datetime,timedelta
 from urllib.request import urlopen
@@ -132,11 +133,18 @@ def query_yes_no(question, default="yes"):
 #    "timezone": "America/Toronto",
 #    "zip": "G1Q"
 #}
+# To avoid issues
 def get_geoip(ip_addr):
+    get_geoip.counter += 1
+    if get_geoip.counter % 149 == 0:
+        print_warning('We have hit the GEOIP api %i times (Max is 150/min). Waiting 1 minute to avoid ban.' 
+                        % get_geoip.counter)
+        time.sleep(60)
     url = 'http://ip-api.com/json/%s' % ip_addr
     out = urlopen(url).read()
     js_out = json.loads(out)
     return js_out
+get_geoip.counter = 0
 
 def timeline_to_csv(filePath, timeline):
     fields = ['email', 'time', 'message']
