@@ -389,6 +389,10 @@ def filter_timeline(timeline, events_filter):
     for entry in timeline:
         if events_filter.email and entry.email == events_filter.email:
             out.append(entry)
+        if events_filter.ip:
+            if entry.message in BROWSER_MSG and type(entry.details) is dict:
+                if entry.details['browser']['address'] == events_filter.ip:
+                    out.append(entry)
         # TODO: Support other type of filtering.
     return out
 
@@ -426,6 +430,8 @@ def print_timeline(events_filter=None):
     x = PrettyTable(title)
     x.padding_width = 1 
     x.max_width = 40
+    x.align['Email'] = 'l' 
+    x.align['Time'] = 'l' 
     x.align['Message'] = 'l' 
     for entry in timeline:
         if entry.message in BROWSER_MSG and type(entry.details) is dict:
@@ -735,6 +741,7 @@ p_group_param.add_argument('--prefix', action='store', dest='prefix', default=No
 p_campaign_desc = '''\
 types:
     UINT    Unsigned Integer value.
+    IP      IP address
     STR     String.
     FILE    Path to a file.
 '''
@@ -754,6 +761,7 @@ Example:
     --list --prefix 'meh_'            # List campaigns that starts with 'meh_'
 
     --results                         # Download and save Phishing results (Timeline + Credentials).
+    --ip-timeline 1.2.3.4             # Print the timeline of a single IP address
 '''
 p_campaign = subparsers.add_parser('campaign', description=p_campaign_desc, epilog=p_campaign_epilog, 
                               formatter_class=argparse.RawDescriptionHelpFormatter, 
@@ -769,6 +777,9 @@ p_campaign_action.add_argument('--list', '-l', action='store_true', dest='list',
                      help='List campaigns.')
 p_campaign_action.add_argument('--results', action='store_true', dest='results', \
                      help='Download and save results.')
+p_campaign_action.add_argument('--ip-timeline', action='store', dest='ip_timeline', \
+                     type=str, metavar='IP', \
+                     help='Print timeline from a specific IP address.')
 
 p_campaign_param = p_campaign.add_argument_group("Parameters")
 p_campaign_param.add_argument('--name', action='store', dest='name', default=None, \
@@ -869,6 +880,8 @@ elif args.action == 'campaign':
         print_campaigns()
     elif args.results:
         save_campaigns()
+    elif args.ip_timeline:
+        print_timeline(EventsFilter(ip=args.ip_timeline))
     else:
         parser.print_help()
 elif args.action == 'creds':
