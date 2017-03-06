@@ -695,7 +695,7 @@ types:
     FILE    Path to a file.
 '''
 p_group_epilog = '''\
-example: 
+Example: 
     --add --name Group_Name --targets-csv '/path/to/csv'    # Create a group and import a CSV file containing targets (users).
 
     --delete                                                # Delete all groups based on config.py.
@@ -717,7 +717,7 @@ p_group_action.add_argument('--delete', action='store_true', dest='delete', \
 p_group_action.add_argument('--list', '-l', action='store_true', dest='list', \
                      help='List groups.')
 
-p_group_param = p_group.add_argument_group("Action Parameters")
+p_group_param = p_group.add_argument_group("Parameters")
 p_group_param.add_argument('--name', action='store', dest='name', default=None, \
                           type=str, metavar='STR', \
                           help='For --add and --delete only. A group name. Mandatory for --add.')
@@ -739,7 +739,7 @@ types:
     FILE    Path to a file.
 '''
 p_campaign_epilog = '''\
-example: 
+Example: 
     --start                           # Start a campaign. All parameters are in the config.py file.
     --start --new-groups              # Upload groups and then start the campaign. See config.py.
     --complete                        # End a campaign. All parameters are in the config.py file.
@@ -770,7 +770,7 @@ p_campaign_action.add_argument('--list', '-l', action='store_true', dest='list',
 p_campaign_action.add_argument('--results', action='store_true', dest='results', \
                      help='Download and save results.')
 
-p_campaign_param = p_campaign.add_argument_group("Action Parameters")
+p_campaign_param = p_campaign.add_argument_group("Parameters")
 p_campaign_param.add_argument('--name', action='store', dest='name', default=None, \
                           type=str, metavar='STR', \
                           help='For --delete only. A campaign name to delete. NOT IMPLEMENTED YET.')
@@ -787,7 +787,7 @@ p_campaign_param.add_argument('--delete-groups', action='store_true', dest='dele
 
 # Creds
 p_creds_epilog = '''\
-example: 
+Example: 
     --print                                 # Print the credentials.
 
     --test-owa                           # Test credentials on OWA. 
@@ -816,7 +816,7 @@ types:
     FILE    Path to a file.
 '''
 p_stats_epilog = '''\
-example: 
+Example: 
     --targets-ip                      # Dump the list of IP addresses so you can do geolocalisation stats.
     --targets-ip --geoip              # Dump the list of IP addresses with geolocation information for each item.
     --targets-ip --users              # Dump the list of IP addresses and their corresponding users.
@@ -833,7 +833,7 @@ p_stats_action.add_argument('--targets-ip', action='store_true', dest='targets_i
 p_stats_action.add_argument('--email', action='store', dest='email', \
                      help='Get statistics of a single email address')
 
-p_stats_param = p_stats.add_argument_group("Action Parameters")
+p_stats_param = p_stats.add_argument_group("Parameters")
 p_stats_param.add_argument('--geoip', action='store_true', dest='geoip', default=None, \
                           help='Show geolocation information.')
 p_stats_param.add_argument('--users', action='store_true', dest='users', default=None, \
