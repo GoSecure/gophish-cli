@@ -98,6 +98,8 @@ class OwaCredsTester(CredsTester):
                 return True
         except Timeout.Timeout:
             return False
+        except AttributeError:
+            return False
 
     # Autodiscover
     # NOT TESTED

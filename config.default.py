@@ -106,10 +106,34 @@ GEOIP_PATH = WORKING_DIR + 'campaign_geoip_%s.csv' % CAMPAIGN_NAME
 #
 # Step 4: Advanced TLS settings
 #
-# 
-# If you have configured Gophish behind a reverse proxy with TLS, uncomment 
-# and configure the classes below. 
 #
+# Uncomment to disable TLS Verification.
+#
+#import gophish.client
+#import requests
+#from requests.packages import urllib3
+#
+#class GophishClient(gophish.client.GophishClient):
+#    """ A standard HTTP REST client used by Gophish """
+#
+#    def __init__(self, api_key, host, **kwargs):
+#        super(GophishClient, self).__init__(api_key, host, **kwargs)
+#
+#    def execute(self, method, path, **kwargs):
+#        """ Executes a request to a given endpoint, returning the result """
+#
+#        url = "{}{}".format(self.host, path)
+#        kwargs.update(self._client_kwargs)
+#        response = requests.request(
+#            method, url, params={"api_key": self.api_key}, verify=False, **kwargs)
+#        return response
+#
+## Just to remove a SubjectAltNameWarning.
+#urllib3.disable_warnings()
+
+#
+# 
+# Uncomment to configure TLS Client certificates or other TLS settings.
 #
 #
 #import ssl
@@ -129,7 +153,7 @@ GEOIP_PATH = WORKING_DIR + 'campaign_geoip_%s.csv' % CAMPAIGN_NAME
 #                                       ssl_version=ssl.PROTOCOL_TLSv1_2,
 #                                       cert_reqs='CERT_REQUIRED')
 #
-#class GophishClient2(gophish.client.GophishClient):
+#class GophishClient(gophish.client.GophishClient):
 #    """ A standard HTTP REST client used by Gophish """
 #    def __init__(self, api_key, host, cert_file=None, ca_file=None, **kwargs):
 #        super(GophishClient, self).__init__(api_key, host, **kwargs)

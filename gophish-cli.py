@@ -53,6 +53,7 @@ import config
 
 DEBUG = False
 
+
 if hasattr(config,'GophishClient'):
     api = Gophish(config.API_KEY,host=config.API_URL,client=config.GophishClient)
 else:
@@ -260,9 +261,9 @@ def delete_groups():
         print_info('Deleting group %i' % g.id)
         api.groups.delete(group_id=g.id)
         
-def print_groups():
+def print_groups(prefix=None):
     title = ['ID', 'Name', 'First User', 'Count']
-    item_list = api.groups.get()
+    item_list = get_groups(prefix)
     x = PrettyTable(title)
     x.align['Name'] = 'l' 
     x.align['First User'] = 'l' 
@@ -276,7 +277,7 @@ def get_groups(prefix=None):
     groups_out = []
     groups = api.groups.get()
     for c in groups:
-        if c.name.startswith(prefix):
+        if prefix is None or c.name.startswith(prefix):
             groups_out.append(c)
     return groups_out
 
@@ -852,6 +853,11 @@ p_stats_param.add_argument('--users', action='store_true', dest='users', default
 
 args = parser.parse_args()
 
+# Overwrite config variables
+if hasattr(args, 'targets_csv'):
+    print('Overwritting config.EMAILS_PATH from --targets-csv')
+    config.EMAILS_PATH = args.targets_csv
+
 DEBUG = args.debug
 
 print_debug('Arguments: ' + str(args))
@@ -862,7 +868,7 @@ if args.action == 'group':
     elif args.delete:
         delete_groups()
     elif args.list:
-        print_groups()
+        print_groups(args.prefix)
     else:
         parser.print_help()
 elif args.action == 'campaign':
