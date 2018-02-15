@@ -104,33 +104,33 @@ JSON_PATH = WORKING_DIR + 'campaign_raw_%s.json' % CAMPAIGN_NAME
 GEOIP_PATH = WORKING_DIR + 'campaign_geoip_%s.csv' % CAMPAIGN_NAME
 
 #
+# By default, we disable SSL verification as gophish uses a self-signed cert.
+#
+import gophish.client
+import requests
+from requests.packages import urllib3
+
+class GophishClient(gophish.client.GophishClient):
+    """ A standard HTTP REST client used by Gophish """
+
+    def __init__(self, api_key, host, **kwargs):
+        super(GophishClient, self).__init__(api_key, host, **kwargs)
+
+    def execute(self, method, path, **kwargs):
+        """ Executes a request to a given endpoint, returning the result """
+
+        url = "{}{}".format(self.host, path)
+        kwargs.update(self._client_kwargs)
+        response = requests.request(
+            method, url, params={"api_key": self.api_key}, verify=False, **kwargs)
+        return response
+
+# Just to remove a SubjectAltNameWarning.
+urllib3.disable_warnings()
+
+#
 # Step 4: Advanced TLS settings
 #
-#
-# Uncomment to disable TLS Verification.
-#
-#import gophish.client
-#import requests
-#from requests.packages import urllib3
-#
-#class GophishClient(gophish.client.GophishClient):
-#    """ A standard HTTP REST client used by Gophish """
-#
-#    def __init__(self, api_key, host, **kwargs):
-#        super(GophishClient, self).__init__(api_key, host, **kwargs)
-#
-#    def execute(self, method, path, **kwargs):
-#        """ Executes a request to a given endpoint, returning the result """
-#
-#        url = "{}{}".format(self.host, path)
-#        kwargs.update(self._client_kwargs)
-#        response = requests.request(
-#            method, url, params={"api_key": self.api_key}, verify=False, **kwargs)
-#        return response
-#
-## Just to remove a SubjectAltNameWarning.
-#urllib3.disable_warnings()
-
 #
 # 
 # Uncomment to configure TLS Client certificates or other TLS settings.
