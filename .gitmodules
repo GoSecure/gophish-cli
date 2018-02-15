@@ -1,6 +1,6 @@
 [submodule "api-client-python"]
 	path = api-client-python
-	url = https://github.com/GoSecure/api-client-python
+	url = https://github.com/gophish/api-client-python
 	branch = stable
 [submodule "exchangelib"]
 	path = exchangelib
