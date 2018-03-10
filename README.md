@@ -2,12 +2,14 @@
 
 This tool aim to perform huge phishing campaigns by using the very respected gophish toolkit. If you need to run a campaign for more than 10 000 email addresses or need to split a batch of email addresses into smaller groups for any reasons (lower risks with anti-Spam, avoid being banned by IPS, bypass Email service limitations, etc.), that tool could help you!
 
-The tool is based the [api-client-python](https://github.com/gophish/api-client-python) library and require [PrettyTable](https://pypi.python.org/pypi/PrettyTable).
+The tool is based the [api-client-python](https://github.com/gophish/api-client-python) library.
+
+A reporting feature was recently added (2018-03-10) allowing users to generate statistics for your report. You can configure the tool to download apache logs, access sendgrid stats (including bounces, deffered, spam reports, etc.), access empire agents and correlate other useful data.
 
 
 ## Installation
 
-You must have a gophish instance already running. Find more about the gophish project [here](https://github.com/gophish/gophish).
+To begin, you need a gophish instance. Find more about the gophish project [here](https://github.com/gophish/gophish).
 
 To install `gophish-cli`, simply run the command:
 
@@ -32,7 +34,7 @@ It is currently using a forked version of the [API library](https://github.com/g
 
 ## Configuration
 
-To begin, you will need the API key found in the [Settings page](https://gophish.gitbooks.io/user-guide/content/documentation/changing_user_settings.html#changing-your-password--updating-settings).
+You need the API key found in the [Settings page](https://gophish.gitbooks.io/user-guide/content/documentation/changing_user_settings.html#changing-your-password--updating-settings).
 
 Then run `cp config.default.py config.py` and edit the `config.py` file using your favourite text editor.
 
@@ -93,22 +95,24 @@ Do you want to continue? [y/N] y
 [-] Launching campaign "JohnDoe - Group 4" at 2017-02-06 17:57:46.813515-05:00
 ```
 
+
 ## Help
 
 ```
 $ python3 ./gophish-cli.py -h               
 usage: gophish-cli.py [-h] [-v] [-c CONFIG] [-d]
-                      {group,campaign,creds,stats} ...
+                      {group,campaign,creds,stats,report} ...
 
 Gophish cli. Use this tool to quickly setup a phishing campaign using your
 gophish infrastructure.
 
 positional arguments:
-  {group,campaign,creds,stats}
+  {group,campaign,creds,stats,report}
     group               Manage groups.
     campaign            Manage campaigns.
     creds               Manage credentials.
-    stats               Manage stats.
+    stats               Manage statss.
+    report              Generate report (currently multiple CSV files).
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -180,15 +184,118 @@ $ python3 ./gophish-cli.py stats --targets-ip
 +------------------------+-----------+
 ```
 
+## Reporting
 
-## Known issues
+Phishing is fun but often comes with a reporting phase. Once configured, the reporting feature is a great kickstarter for your report.
+
+```
+$ ./gophish-cli.py -d report
+
+DEBUG    Arguments: Namespace(action='report', config=None, debug=True)
+INFO     Getting 1 campaign timelines for Client X
+DEBUG      Got 7605 events
+INFO     Getting 1 campaign results for Client X
+DEBUG      Got 4820 events
+INFO     Generating report.
+INFO     Setting up folders
+DEBUG    Creating folder: /home/user/client/phishing/report_20180310-133544/
+DEBUG    Creating folder: /home/user/client/phishing/report_20180310-133544/apache_logs/
+INFO     Downloading apache logs
+DEBUG    [SSH] Attempting to authenticate
+DEBUG    [SSH] Trying ssh-agent key <some fingerprint>
+DEBUG    [SSH]... success!
+DEBUG    [SSH] Authentication successful
+DEBUG    [SSH] Changing directory: /var/log/apache2/
+DEBUG    [SSH] Downloading: meh.domain.com.access.log
+DEBUG    [SSH] Downloading: meh.domain.com.access.log.1
+DEBUG    [SSH] Downloading: meh.domain.com.error.log
+DEBUG      Got 119 lines
+INFO     Getting Sendgrid Stats
+INFO     Getting Empire Agents
+DEBUG      Got 82 agents
+INFO     Extracting stats
+INFO     Printing Report
+Raw Data: 
+
+  Timeline: 
+    First Event: 2018-03-09 08:09:46
+    Last Event: 2018-03-10 09:20:15
+    Email sent: 6165
+    Email opened: 1052
+    Clicked Link: 238
+    Submitted Data: 149
+    Unique Email opened: 188
+    Unique Clicked Link: 158
+    Unique Submitted Data: 103
+    Source IPs: 
+      None (6166)
+      1.2.3.4 (800)
+      5.6.7.8 (225)
+      ...
+
+  Sendgrid stats:
+    Blocks: 13
+    Bounce Drops: 188
+    Bounces: 98
+    Clicks: 0
+    Deffered: 10
+    Delivered: 5101
+    Invalid Emails: 0
+    Open: 1227
+    Processed: 6014
+    Requests: 6068
+    Spam Report Drops: 0
+    Spam Reports: 0
+    Unique Clicks: 0
+    Unique Opens: 193
+    Subscribe Drops: 0
+    Unsubscribes: 0
+
+  Apache: 
+    Malware Download: 149
+    Source IPs: 
+      1.2.3.4 (123)
+      5.6.7.8 (45)
+
+  Empire: 
+    Agents count: 82
+    Agents HighPriv count: 10
+    Unique Agents username count: 78
+    Unique Agents Hostnames count: 76
+    OS Details: 
+      Microsoft Windows 7 Professional  (75)
+      Microsoft Windows 10 Enterprise (4)
+      Microsoft Windows 10 Home (1)
+      Microsoft Windows 7 Ultimate  (1)
+      Microsoft Windows 10 Pro (1)
+    Source IPs: 
+      1.2.3.4 (40)
+      5.6.7.8 (10)
+      ...
+
+Analyzed Data: 
+
+  Conversion Percentage:
+    Email Received (6165) -> Email Opened (1052): 17.06
+    Email Open (1052) -> Link Clicked (158): 15.02
+    Page Visit (158) -> Send Credentials (103): 65.19
+    Malware Download (149) -> Malware Execution (78) (Empire): 52.35
+    Malware Download (149) -> Malware Execution (0) (Msf): 0.0
+    Malware Download (149) -> Malware Execution (0) (Cobalt): 0.0
+```
+
+## Known issues & Troubleshooting
 
 ### Issues with Outlook 365
 
 Outlook 365 limit the number of email sent per connection to 30. `GROUP_SIZE` must be set to 30 when using this provider.
 
-### Issues with sendgrid
+### Emails keep the status "Sending"
 
-For unknown reasons, some email addresses are stuck with status "Sending" if too many emails are sent at once. For now, we have had success with `GROUP_SIZE=100` and `BATCH_INTERVAL=5`.
+On previous version of gophish (< 0.5), some email addresses were stuck with status "Sending" if too many emails were sent at once. The fix was to split in groups of 100 and put a delay between each waves. 
 
+Example: `GROUP_SIZE=100` and `BATCH_INTERVAL=5`
 
+### My emails are flagged as SPAM.
+
+Test your campaign here: [https://www.mail-tester.com/](https://www.mail-tester.com/)
