@@ -1,1 +1,7 @@
 prettytable
+paramiko
+json
+sendgrid
+dateutil
+apache_log_parser
+colorlog

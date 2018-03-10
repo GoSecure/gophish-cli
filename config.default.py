@@ -103,6 +103,37 @@ CREDS_PATH = WORKING_DIR + 'campaign_creds_%s_%s.csv' % (FILE_DATE, CAMPAIGN_NAM
 JSON_PATH = WORKING_DIR + 'campaign_raw_%s.json' % CAMPAIGN_NAME
 GEOIP_PATH = WORKING_DIR + 'campaign_geoip_%s.csv' % CAMPAIGN_NAME
 
+# Reporting
+
+EXCLUDED_IP = []
+
+GOPHISH_HOST = ''
+GOPHISH_SSH_PORT = 22
+GOPHISH_SSH_USER = 'root'
+GOPHISH_SSH_PASS = None
+GOPHISH_SSH_KEY = '/path/to/key'
+GOPHISH_SSH_KEY_PASSPHRASE = 'some_pass'
+
+# Gophish timestamps are in UTC. This will put dates as this timezone.
+GOPHISH_TIMEZONE = "America/Toronto"
+
+APACHE_HOST = GOPHISH_HOST
+APACHE_SSH_PORT = GOPHISH_SSH_PORT
+APACHE_SSH_USER = GOPHISH_SSH_USER
+APACHE_SSH_PASS = GOPHISH_SSH_PASS
+APACHE_SSH_KEY = GOPHISH_SSH_KEY
+APACHE_SSH_KEY_PASSPHRASE = GOPHISH_SSH_KEY_PASSPHRASE
+APACHE_LOGS_FOLDER = '/var/log/apache2/'
+APACHE_LOGS_PREFIX = 'path.toyourwebsite.com'
+# Take if from /etc/apache2/apache2.conf. The line starts with LogFormat. Currently using the "combined" one.
+APACHE_LOGS_FORMAT = "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\""
+APACHE_MALWARE_NAME = 'malware.zip'
+
+EMPIRE_API_URL = 'https://127.0.0.1:1337'
+EMPIRE_API_KEY = 'some_key'
+
+SENDGRID_API_KEY = 'some_key'
+
 #
 # By default, we disable SSL verification as gophish uses a self-signed cert.
 #

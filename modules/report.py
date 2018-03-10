@@ -32,12 +32,23 @@ SOFTWARE.
 '''
 
 import os
+import re
 import ssl
 import time
 import json
 import config
+import pytz
+import logging
+import datetime
+import dateutil.parser
 import paramiko
+import sendgrid
 import urllib.request
+import apache_log_parser
+
+BROWSER_MSG = ['Email Opened', 'Clicked Link', 'Submitted Data']
+
+logger = logging.getLogger('gophish-cli')
 
 class GophishReporter():
     timeline = None
@@ -49,18 +60,20 @@ class GophishReporter():
     out_folder = config.WORKING_DIR + 'report_%s/' % time.strftime("%Y%m%d-%H%M%S")
     apache_folder = out_folder + 'apache_logs/'
 
+
     def __init__(self, timeline, results):
         self.timeline = timeline
         self.results = results
         self.excluded_ip = config.EXCLUDED_IP
+        self.timezone = pytz.timezone(config.GOPHISH_TIMEZONE)
 
     def _setup_out_folder(self):
         if not os.path.exists(self.out_folder):
-            print("Creating folder: %s" % self.out_folder)
+            logger.debug("Creating folder: %s" % self.out_folder)
             os.makedirs(self.out_folder)
 
         if not os.path.exists(self.apache_folder):
-            print("Creating folder: %s" % self.apache_folder)
+            logger.debug("Creating folder: %s" % self.apache_folder)
             os.makedirs(self.apache_folder)
 
     def _ssh_agent_auth(self, transport, username):
@@ -68,23 +81,63 @@ class GophishReporter():
         Attempt to authenticate to the given transport using any of the private
         keys available from an SSH agent
         """
-    
+   
+        logger.debug('[SSH] Attempting to authenticate')
         agent = paramiko.Agent()
         agent_keys = agent.get_keys()
         if len(agent_keys) == 0:
             return
     
         for key in agent_keys:
-            print('Trying ssh-agent key %s' % key.get_fingerprint())
+            logger.debug('[SSH] Trying ssh-agent key %s' % key.get_fingerprint().hex())
             try:
                 transport.auth_publickey(username, key)
-                print('... success!')
+                logger.debug('[SSH]... success!')
                 return
             except paramiko.SSHException as e:
-                print('... failed!', e)
+                logger.debug('[SSH]... failed!', e)
 
-    def _filter_json(objects, key, value):
-        pass
+    # Extract specific keys and return a list of their values.
+    # Useful to extract empire unique users, workstations or operating systems
+    def _json_get_unique_key(self, json_obj, key):
+        return list(set([obj[key] for obj in json_obj]))
+
+    def _json_get_count_key(self, json_obj, key):
+        d = dict()
+        for obj in json_obj:
+            key_value = obj[key]
+            d[key_value] = d.get(key_value, 0) + 1
+        return d
+
+    def _get_timeline_unique_key(self, key):
+        return list(set([getattr(obj,key) for obj in self.timeline]))
+
+    def _get_timeline_key_count(self, key):
+        d = dict()
+        for obj in self.timeline:
+            key_value = getattr(obj,key)
+            d[key_value] = d.get(key_value, 0) + 1
+        return d
+
+    def _get_apache_key_count(self, key):
+        d = dict()
+        line_parser = apache_log_parser.make_parser(config.APACHE_LOGS_FORMAT)
+        for log_line in self.apache_malware_dl:
+            log_line_data = line_parser(log_line)
+            key_value = log_line_data[key]
+            d[key_value] = d.get(key_value, 0) + 1
+        return d
+
+    def _grep_files(self, path, search):
+        res = []
+        for root, dirs, fnames in os.walk(path):
+            for fname in fnames:
+                filepath = os.path.join(root, fname)
+                with open(filepath, 'r') as f:
+                    for line in f:
+                        if search in line:
+                            res.append(line)
+        return res
 
     def get_apache_logs(self):
         ssh = paramiko.Transport((config.APACHE_HOST, config.APACHE_SSH_PORT))
@@ -92,22 +145,27 @@ class GophishReporter():
         self._ssh_agent_auth(ssh, config.APACHE_SSH_USER)
 
         if not ssh.is_authenticated():
-            print("Authentication failed. Make sure that your key is added to SSH agent. If not, use ssh-add.")
+            logger.error("[SSH] Authentication failed. Make sure that your key is added to SSH agent. If not, use ssh-add.")
             sys.exit(1)
         else:
-            print("Authentication successful")
+            logger.debug("[SSH] Authentication successful")
 
         #ssh.set_missing_host_key_policy(AllowAnythingPolicy())
         sftp = ssh.open_session()
         sftp = paramiko.SFTPClient.from_transport(ssh)
+        logger.debug('[SSH] Changing directory: %s' % config.APACHE_LOGS_FOLDER)
         sftp.chdir(config.APACHE_LOGS_FOLDER)
         for filename in sorted(sftp.listdir()):
             if filename.startswith(config.APACHE_LOGS_PREFIX):
-                #print(filename)
+                logger.debug('[SSH] Downloading: %s' % filename)
                 sftp.get(filename, self.apache_folder + filename)
 
         sftp.close()
         ssh.close()
+
+        # TODO: Unzip *.gz 
+        self.apache_malware_dl = self._grep_files(self.apache_folder, config.APACHE_MALWARE_NAME)
+        logger.debug('  Got %s malware download' % len(self.apache_malware_dl))
 
     def get_empire_agents(self):
         header={'Content-Type': 'application/json'}
@@ -120,7 +178,18 @@ class GophishReporter():
         req = urllib.request.Request(url=url, headers=header, method='GET')
         res = urllib.request.urlopen(req, timeout=5, context=ctx)
         res_body = res.read()
-        self.empire_agents = json.loads(res_body.decode("utf-8"))['agents']
+        self.empire_agents = json.loads(res_body.decode('utf-8'))['agents']
+        logger.debug('  Got %s agents' % len(self.empire_agents))
+
+    def get_sendgrid_stats(self):
+        sg = sendgrid.SendGridAPIClient(apikey=config.SENDGRID_API_KEY)
+        start_date = self.get_first_event_ts().strftime('%Y-%m-%d')
+        params = {'aggregated_by': 'day', 'limit': 1, 'start_date': start_date, 'end_date': start_date, 'offset': 1}
+        response = sg.client.stats.get(query_params=params)
+        if response.status_code == 200:
+            self.sendgrid_stats = json.loads(response.body.decode('utf-8'))[0]['stats'][0]['metrics']
+        else:
+            self.sendgrid_stats = []
 
     def get_msf_shells(self):
         pass
@@ -128,45 +197,197 @@ class GophishReporter():
     def get_cobaltstrike_shells(self):
         pass
 
-    def get_unique_email_opened(self):
-        pass
-
-    def get_unique_link_clicked(self):
-        pass
-
-    def get_unique_credentials_submit(self):
-        pass
-
     def get_first_event_ts(self):
-        pass
+        return dateutil.parser.parse(self.timeline[0].time).astimezone(self.timezone)
 
     def get_last_event_ts(self):
-        pass
+        return dateutil.parser.parse(self.timeline[-1].time).astimezone(self.timezone)
 
-    def get_conversion_percentage(self):
-        pass
+    def extract_gophish_stats(self):
+        self.stats['first_event_ts'] = self.get_first_event_ts().strftime("%Y-%m-%d %H:%M:%S")
+        self.stats['last_event_ts'] = self.get_last_event_ts().strftime("%Y-%m-%d %H:%M:%S")
 
-    def extract_stats(self):
+        self.stats['email_sent_ct'] = len([x.email for x in self.timeline if x.message == 'Email Sent'])
+        self.stats['email_opened_ct'] = len([x.email for x in self.timeline if x.message == 'Email Opened'])
+        self.stats['clicked_link_ct'] = len([x.email for x in self.timeline if x.message == 'Clicked Link'])
+        self.stats['submitted_data_ct'] = len([x.email for x in self.timeline if x.message == 'Submitted Data'])
+
+        self.stats['unique_email_opened_ct'] = len(list(set([x.email for x in self.timeline if x.message == 'Email Opened'])))
+        self.stats['unique_clicked_link_ct'] = len(list(set([x.email for x in self.timeline if x.message == 'Clicked Link'])))
+        self.stats['unique_submitted_data_ct'] = len(list(set([x.email for x in self.timeline if x.message == 'Submitted Data'])))
+
+        # source IP
+        for i in range(0, len(self.timeline)):
+            if self.timeline[i].message in BROWSER_MSG and type(self.timeline[i].details) is dict:
+                self.timeline[i].source_ip = self.timeline[i].details['browser']['address']
+            else:
+                self.timeline[i].source_ip = None
+        self.stats['source_ip'] = self._get_timeline_key_count('source_ip')
+        
+    def extract_apache_stats(self):
+        self.stats['apache_malware_dl_ct'] = len(self.apache_malware_dl)
+        self.stats['apache_source_ip'] = self._get_apache_key_count('remote_host')
+
+    def extract_empire_stats(self):
         self.stats['empire_agents_ct'] = len(self.empire_agents)
-
         self.stats['empire_agents_highpriv_ct'] = len([x for x in self.empire_agents if x['high_integrity'] == 1])
+        self.stats['empire_agents_unique_usernames_ct'] = len(self._json_get_unique_key(self.empire_agents, 'username'))
+        self.stats['empire_agents_unique_hostnames_ct'] = len(self._json_get_unique_key(self.empire_agents, 'hostname'))
+
+        self.stats['empire_os'] = self._json_get_count_key(self.empire_agents, 'os_details')
+        self.stats['empire_source_ip'] = self._json_get_count_key(self.empire_agents, 'external_ip')
+
+    def extract_msf_stats(self):
+        self.stats['msf_agents_ct'] = 0
+        self.stats['msf_agents_highpriv_ct'] = 0
+        self.stats['msf_agents_unique_usernames_ct'] = 0
+        self.stats['msf_agents_unique_hostnames_ct'] = 0
+
+        self.stats['msf_os'] = []
+        self.stats['msf_source_ip'] = []
+
+    def extract_cobaltstrike_stats(self):
+        self.stats['cs_agents_ct'] = 0
+        self.stats['cs_agents_highpriv_ct'] = 0
+        self.stats['cs_agents_unique_usernames_ct'] = 0
+        self.stats['cs_agents_unique_hostnames_ct'] = 0
+
+        self.stats['cs_os'] = []
+        self.stats['cs_source_ip'] = []
+
+    def extract_delivered_emails(self):
+        pass
+
+    def extract_conversion_stats(self):
+        self.stats['conversion_receive_to_open'] = round(self.stats['email_opened_ct'] / self.stats['email_sent_ct'] * 100, 2)
+        self.stats['conversion_email_to_click'] = round(self.stats['unique_clicked_link_ct'] / self.stats['email_opened_ct'] * 100, 2)
+        self.stats['conversion_page_to_creds'] = round(self.stats['unique_submitted_data_ct'] / self.stats['unique_clicked_link_ct']  * 100, 2)
+        self.stats['conversion_dl_to_empire_exec'] = round(self.stats['empire_agents_unique_usernames_ct'] /  self.stats['apache_malware_dl_ct']  * 100, 2)
+        self.stats['conversion_dl_to_msf_exec'] = round(self.stats['msf_agents_unique_usernames_ct'] /  self.stats['apache_malware_dl_ct']  * 100, 2)
+        self.stats['conversion_dl_to_cs_exec'] = round(self.stats['cs_agents_unique_usernames_ct'] /  self.stats['apache_malware_dl_ct']  * 100, 2)
 
     def generate(self):
-        print("Generating report.")
+        logger.info("Generating report.")
 
-        print("Setting up folders")
+        logger.info("Setting up folders")
         self._setup_out_folder()
 
-        #print("Downloading apache logs")
-        #self.get_apache_logs()
+        logger.info("Downloading apache logs")
+        self.get_apache_logs()
 
-        print("Getting Empire Agents")
+        logger.info("Getting Sendgrid Stats")
+        self.get_sendgrid_stats()
+
+        logger.info("Getting Empire Agents")
         self.get_empire_agents()
 
-        print("Extracting stats")
-        self.extract_stats()
+        logger.info("Extracting stats")
+        self.extract_gophish_stats()
+        self.extract_apache_stats()
+        self.extract_empire_stats()
+        self.extract_msf_stats()
+        self.extract_cobaltstrike_stats()
+        self.extract_conversion_stats()
 
-        print("Report: ")
-        print("  Empire Agents count: %s" % self.stats['empire_agents_ct'])
-        print("  Empire Agents HighPriv count: %s" % self.stats['empire_agents_highpriv_ct'])
+        logger.info("Printing Report")
+        print("Raw Data: ")
+        print("")
+        print("  Timeline: ")
+        print("    First Event: %s" % self.stats['first_event_ts'])
+        print("    Last Event: %s" % self.stats['last_event_ts'])
+        print("    Email sent: %s" % self.stats['email_sent_ct'])
+        print("    Email opened: %s" % self.stats['email_opened_ct'])
+        print("    Clicked Link: %s" % self.stats['clicked_link_ct'])
+        print("    Submitted Data: %s" % self.stats['submitted_data_ct'])
+        print("    Unique Email opened: %s" % self.stats['unique_email_opened_ct'])
+        print("    Unique Clicked Link: %s" % self.stats['unique_clicked_link_ct'])
+        print("    Unique Submitted Data: %s" % self.stats['unique_submitted_data_ct'])
+        print("    Source IPs: ")
+        for key, count in self.stats['source_ip'].items():
+            print("      %s (%s)" % (key,count))
+        print("")
+        print("  Sendgrid stats:")
+        print("    Blocks: %s" % self.sendgrid_stats['blocks'])
+        print("    Bounce Drops: %s" % self.sendgrid_stats['bounce_drops'])
+        print("    Bounces: %s" % self.sendgrid_stats['bounces'])
+        print("    Clicks: %s" % self.sendgrid_stats['clicks'])
+        print("    Deffered: %s" % self.sendgrid_stats['deferred'])
+        print("    Delivered: %s" % self.sendgrid_stats['delivered'])
+        print("    Invalid Emails: %s" % self.sendgrid_stats['invalid_emails'])
+        print("    Open: %s" % self.sendgrid_stats['opens'])
+        print("    Processed: %s" % self.sendgrid_stats['processed'])
+        print("    Requests: %s" % self.sendgrid_stats['requests'])
+        print("    Spam Report Drops: %s" % self.sendgrid_stats['spam_report_drops'])
+        print("    Spam Reports: %s" % self.sendgrid_stats['spam_reports'])
+        print("    Unique Clicks: %s" % self.sendgrid_stats['unique_clicks'])
+        print("    Unique Opens: %s" % self.sendgrid_stats['unique_opens'])
+        print("    Subscribe Drops: %s" % self.sendgrid_stats['unsubscribe_drops'])
+        print("    Unsubscribes: %s" % self.sendgrid_stats['unsubscribes'])
+        print("")
+        print("  Apache: ")
+        print("    Malware Download: %s" % self.stats['apache_malware_dl_ct'])
+        print("    Source IPs: ")
+        for key, count in self.stats['apache_source_ip'].items():
+            print("      %s (%s)" % (key,count))
+        print("")
+        if self.stats['empire_agents_ct'] > 0:
+            print("  Empire: ")
+            print("    Agents count: %s" % self.stats['empire_agents_ct'])
+            print("    Agents HighPriv count: %s" % self.stats['empire_agents_highpriv_ct'])
+            print("    Unique Agents username count: %s" % self.stats['empire_agents_unique_usernames_ct'])
+            print("    Unique Agents Hostnames count: %s" % self.stats['empire_agents_unique_hostnames_ct'])
+            print("    OS Details: ")
+            for key, count in self.stats['empire_os'].items():
+                print("      %s (%s)" % (key,count))
+            print("    Source IPs: ")
+            for key, count in self.stats['empire_source_ip'].items():
+                print("      %s (%s)" % (key,count))
+            print("")
+        if self.stats['msf_agents_ct'] > 0:
+            print("  Metasploit: ")
+            print("    Agents count: %s" % self.stats['msf_agents_ct'])
+            print("    Agents HighPriv count: %s" % self.stats['msf_agents_highpriv_ct'])
+            print("    Unique Agents username count: %s" % self.stats['msf_agents_unique_usernames_ct'])
+            print("    Unique Agents Hostnames count: %s" % self.stats['msf_agents_unique_hostnames_ct'])
+            print("    OS Details: ")
+            for key, count in self.stats['msf_os'].items():
+                print("      %s (%s)" % (key,count))
+            print("    Source IPs: ")
+            for key, count in self.stats['msf_source_ip'].items():
+                print("      %s (%s)" % (key,count))
+            print("")
+        if self.stats['cs_agents_ct'] > 0:
+            print("  Cobalt Strike: ")
+            print("    Agents count: %s" % self.stats['cs_agents_ct'])
+            print("    Agents HighPriv count: %s" % self.stats['cs_agents_highpriv_ct'])
+            print("    Unique Agents username count: %s" % self.stats['cs_agents_unique_usernames_ct'])
+            print("    Unique Agents Hostnames count: %s" % self.stats['cs_agents_unique_hostnames_ct'])
+            print("    OS Details: ")
+            for key, count in self.stats['cs_os'].items():
+                print("      %s (%s)" % (key,count))
+            print("    Source IPs: ")
+            for key, count in self.stats['cs_source_ip'].items():
+                print("      %s (%s)" % (key,count))
+            print("")
+        print("Analyzed Data: ")
+        print("")
+        print("  Conversion Percentage:")
+        print("    Email Received (%s) -> Email Opened (%s): %s" % (self.stats['email_sent_ct'], 
+                                                                    self.stats['email_opened_ct'], 
+                                                                    self.stats['conversion_receive_to_open']))
+        print("    Email Open (%s) -> Link Clicked (%s): %s" % (self.stats['email_opened_ct'], 
+                                                                self.stats['unique_clicked_link_ct'],
+                                                                self.stats['conversion_email_to_click']))
+        print("    Page Visit (%s) -> Send Credentials (%s): %s" % (self.stats['unique_clicked_link_ct'], 
+                                                                    self.stats['unique_submitted_data_ct'],
+                                                                    self.stats['conversion_page_to_creds']))
+        print("    Malware Download (%s) -> Malware Execution (%s) (Empire): %s" % (self.stats['apache_malware_dl_ct'], 
+                                                                                    self.stats['empire_agents_unique_usernames_ct'],
+                                                                                    self.stats['conversion_dl_to_empire_exec']))
+        print("    Malware Download (%s) -> Malware Execution (%s) (Msf): %s" % (self.stats['apache_malware_dl_ct'], 
+                                                                                    self.stats['msf_agents_unique_usernames_ct'],
+                                                                                    self.stats['conversion_dl_to_msf_exec']))
+        print("    Malware Download (%s) -> Malware Execution (%s) (Cobalt): %s" % (self.stats['apache_malware_dl_ct'], 
+                                                                                    self.stats['cs_agents_unique_usernames_ct'],
+                                                                                    self.stats['conversion_dl_to_cs_exec']))
         print("")

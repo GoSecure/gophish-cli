@@ -35,6 +35,8 @@ import sys
 import csv
 import json
 import time
+import logging
+import colorlog
 import argparse
 from datetime import datetime,timedelta
 from urllib.request import urlopen
@@ -51,8 +53,33 @@ from modules.report import GophishReporter
 
 import config
 
-DEBUG = False
+# Make sure you run python3
+if sys.version_info < (3, 2, 0):
+    print('Python version 3.2 or later is needed for this script')
+    exit(1)
 
+# Logging settings
+formatter = colorlog.ColoredFormatter(
+  "%(log_color)s%(levelname)-8s%(reset)s %(white)s%(message)s",
+  datefmt=None,
+  reset=True,
+  log_colors={
+  'DEBUG': 'cyan',
+  'INFO': 'green',
+  'WARNING': 'yellow',
+  'ERROR': 'red',
+  'CRITICAL': 'red,bg_white',
+  },
+  secondary_log_colors={},
+  style='%'
+)
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logger = logging.getLogger('gophish-cli')
+logger.addHandler(handler)
+logger.setLevel('INFO')
+
+DEBUG = False
 
 if hasattr(config,'GophishClient'):
     api = Gophish(config.API_KEY,host=config.API_URL,client=config.GophishClient)
@@ -67,20 +94,6 @@ class EventsFilter():
         self.email = email
         self.ip = ip
         self.group = group
-
-def print_info(msg):
-    print('[-] ' + msg)
-
-def print_warning(msg):
-    print('[-WARNING-] ' +msg)
-
-def print_title(msg):
-    print('')
-    print('[] ' + msg)
-
-def print_debug(msg):
-    if DEBUG:
-        print('[+] ' + msg)
 
 def query_yes_no(question, default="yes"):
     """Ask a yes/no question via raw_input() and return their answer.
@@ -138,7 +151,7 @@ def query_yes_no(question, default="yes"):
 def get_geoip(ip_addr):
     get_geoip.counter += 1
     if get_geoip.counter % 149 == 0:
-        print_warning('We have hit the GEOIP api %i times (Max is 150/min). Waiting 1 minute to avoid ban.' 
+        logger.warning('We have hit the GEOIP api %i times (Max is 150/min). Waiting 1 minute to avoid ban.' 
                         % get_geoip.counter)
         time.sleep(60)
     url = 'http://ip-api.com/json/%s' % ip_addr
@@ -166,7 +179,7 @@ def timeline_to_csv(filePath, timeline):
         row = None
 
     csvfile.flush()
-    print_info('Exported %i timeline entries to %s' % (len(timeline),filePath))
+    logger.info('Exported %i timeline entries to %s' % (len(timeline),filePath))
 
 def creds_to_csv(filePath, creds_list):
     fields = ['email', 'username', 'password', 'is_valid']
@@ -182,7 +195,7 @@ def creds_to_csv(filePath, creds_list):
         creds = None
 
     csvfile.flush()
-    print_info('Exported %s credentials to %s' % (len(creds_list), filePath))
+    logger.info('Exported %s credentials to %s' % (len(creds_list), filePath))
 
 def ips_to_csv(filePath, ips):
     fields = ['IP Address', 'Hit Count', 'City', 'Region', 'Timezone', 'ISP']
@@ -207,12 +220,12 @@ def ips_to_csv(filePath, ips):
         row = None
 
     csvfile.flush()
-    print_info('Exported %s targets IP to %s' % (len(ips), filePath))
+    logger.info('Exported %s targets IP to %s' % (len(ips), filePath))
 
 def create_group(i, batch_ct, campaign_name, targets):
     batch_num = (int)(i/batch_ct)
     batch_name = config.CAMPAIGN_NAME_TPL % (campaign_name,batch_num)
-    print_info('Creating group "%s" with %i targets. First email is %s' 
+    logger.info('Creating group "%s" with %i targets. First email is %s' 
           % (batch_name,len(targets),targets[0].email))
     group = Group(name=batch_name, targets=targets)
     group = api.groups.post(group)
@@ -233,12 +246,12 @@ def create_groups():
     if len(targets) > 0:
         group_to_create.append([i+config.GROUP_SIZE, config.GROUP_SIZE, config.CAMPAIGN_NAME, targets])
 
-    print_info('Preparing new groups creation.')
-    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
-    print_info('  File Path: %s' % config.EMAILS_PATH)
-    print_info('  Batch size: %i' % config.GROUP_SIZE)
-    print_info('  Group count: %i' % len(group_to_create))
-    print_info('  Email count: %i' % i)
+    logger.info('Preparing new groups creation.')
+    logger.info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    logger.info('  File Path: %s' % config.EMAILS_PATH)
+    logger.info('  Batch size: %i' % config.GROUP_SIZE)
+    logger.info('  Group count: %i' % len(group_to_create))
+    logger.info('  Email count: %i' % i)
     ret = query_yes_no('Do you want to continue?',default='no')
 
     if not ret:
@@ -250,15 +263,15 @@ def create_groups():
 def delete_groups():
     groups = get_groups(config.CAMPAIGN_PREFIX)
 
-    print_info('Preparing to delete groups')
-    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
-    print_info('  Group count: %i' % len(groups))
+    logger.info('Preparing to delete groups')
+    logger.info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    logger.info('  Group count: %i' % len(groups))
     ret = query_yes_no('Do you want to continue?',default='no')
     if not ret:
         return
 
     for g in groups:
-        print_info('Deleting group %i' % g.id)
+        logger.info('Deleting group %i' % g.id)
         api.groups.delete(group_id=g.id)
         
 def print_groups(prefix=None):
@@ -291,7 +304,7 @@ def create_campaign(campaign_id, group_name, launch_date):
                 name=campaign_name, groups=groups, page=page,
                 template=template, smtp=smtp, url=config.CAMPAIGN_URL, launch_date=launch_date)
     
-    print_info('Launching campaign "%s" at %s' % (campaign_name,launch_date))
+    logger.info('Launching campaign "%s" at %s' % (campaign_name,launch_date))
     campaign = api.campaigns.post(campaign)
 
 def create_campaigns():
@@ -299,15 +312,15 @@ def create_campaigns():
     launch_date = datetime.now(tzlocal()) + timedelta(minutes=config.START_INTERVAL)	
     interval = config.BATCH_INTERVAL
 
-    print_info('Preparing to launch campaigns')
-    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
-    print_info('  Landing Page: %s' % config.LP_NAME)
-    print_info('  Email Template: %s' % config.ET_NAME)
-    print_info('  Sending Profile: %s' % config.SP_NAME)
-    print_info('  URL: %s' % config.CAMPAIGN_URL)
-    print_info('  Group count: %i' % group_ct)
-    print_info('  Launch Date: %s' % launch_date)
-    print_info('  Time interval: %i minute(s)' % interval)
+    logger.info('Preparing to launch campaigns')
+    logger.info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    logger.info('  Landing Page: %s' % config.LP_NAME)
+    logger.info('  Email Template: %s' % config.ET_NAME)
+    logger.info('  Sending Profile: %s' % config.SP_NAME)
+    logger.info('  URL: %s' % config.CAMPAIGN_URL)
+    logger.info('  Group count: %i' % group_ct)
+    logger.info('  Launch Date: %s' % launch_date)
+    logger.info('  Time interval: %i minute(s)' % interval)
     ret = query_yes_no('Do you want to continue?',default='no')
     if not ret:
         return
@@ -318,15 +331,15 @@ def create_campaigns():
         launch_date += timedelta(minutes=interval)
 
 def complete_campaign(campaign_id):
-    print_info('Completing campaign %i' % campaign_id)
+    logger.info('Completing campaign %i' % campaign_id)
     api.campaigns.complete(campaign_id)
 
 def complete_campaigns():
     campaigns = get_campaigns(config.CAMPAIGN_PREFIX)
 
-    print_info('Preparing to complete campaigns')
-    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
-    print_info('  Campaign Count: %i' % len(campaigns))
+    logger.info('Preparing to complete campaigns')
+    logger.info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    logger.info('  Campaign Count: %i' % len(campaigns))
     ret = query_yes_no('Do you want to continue?',default='no')
     if not ret:
         return
@@ -349,15 +362,15 @@ def print_campaigns():
 def delete_campaigns():
     campaigns = get_campaigns(config.CAMPAIGN_PREFIX)
 
-    print_info('Preparing to delete campaigns')
-    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
-    print_info('  Group count: %i' % len(campaigns))
+    logger.info('Preparing to delete campaigns')
+    logger.info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    logger.info('  Group count: %i' % len(campaigns))
     ret = query_yes_no('Do you want to continue?',default='no')
     if not ret:
         return
 
     for c in campaigns:
-        print_info('Deleting campaign %i' % c.id)
+        logger.info('Deleting campaign %i' % c.id)
         api.campaigns.delete(campaign_id=c.id)
 
 def get_campaigns(prefix=None):
@@ -408,23 +421,23 @@ def filter_results(results, events_filter):
 def get_timelines(events_filter=None):
     timeline = []
     campaigns = get_campaigns(config.CAMPAIGN_PREFIX)
-    print_debug('Getting %i campaign timelines for %s' % (len(campaigns),config.CAMPAIGN_NAME))
+    logger.info('Getting %i campaign timelines for %s' % (len(campaigns),config.CAMPAIGN_NAME))
     for c in campaigns:
         timeline += c.timeline
     if events_filter is not None:
         timeline = filter_timeline(timeline, events_filter)
-    print_debug('  Got %i events' % (len(timeline)))
+    logger.debug('  Got %i events' % (len(timeline)))
     return timeline
 
 def get_results(events_filter=None):
     results = []
     campaigns = get_campaigns(config.CAMPAIGN_PREFIX)
-    print_debug('Getting %i campaign results for %s' % (len(campaigns),config.CAMPAIGN_NAME))
+    logger.info('Getting %i campaign results for %s' % (len(campaigns),config.CAMPAIGN_NAME))
     for c in campaigns:
         results += c.results
     if events_filter is not None:
         results = filter_results(results, events_filter)
-    print_debug('  Got %i events' % (len(results)))
+    logger.debug('  Got %i events' % (len(results)))
     return results
 
 def print_timeline(events_filter=None):
@@ -456,7 +469,7 @@ def get_creds_from_timeline(timeline, userField=config.LP_USER_FIELD,
                                entry.details['payload'][passField][0])
            creds_list.append(creds)
         elif entry.message == 'Submitted Data':
-            print_warning('Invalid submitted data found. Check LP_USER_FIELD and LP_PWD_FIELD in config.py')
+            logger.warning('Invalid submitted data found. Check LP_USER_FIELD and LP_PWD_FIELD in config.py')
     return creds_list
 
 def save_campaigns():
@@ -472,7 +485,7 @@ def save_campaigns():
         campaigns_dict.append(campaign.as_dict())
     with open(config.JSON_PATH, 'w') as outfile:
         json.dump(campaigns_dict, outfile)
-    print_info('Exported %i campaigns to %s.' 
+    logger.info('Exported %i campaigns to %s.' 
             % (len(campaigns), config.JSON_PATH))
 
 def print_creds(events_filter=None):
@@ -492,14 +505,14 @@ def print_creds(events_filter=None):
 def test_creds_owa(events_filter=None):
     creds_list = get_creds_from_timeline(get_timelines(events_filter))
 
-    print_info('**WARNING**')
-    print_info('Too many attempts could lock accounts. Be easy with this feature.')
-    print_info('')
-    print_info('Preparing to test credentials on OWA')
-    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
-    print_info('  OWA Domain: %s' % config.OWA_DOMAIN)
-    print_info('  OWA Server: %s' % config.OWA_SERVER)
-    print_info('  Credentials count: %i' % len(creds_list))
+    logger.info('**WARNING**')
+    logger.info('Too many attempts could lock accounts. Be easy with this feature.')
+    logger.info('')
+    logger.info('Preparing to test credentials on OWA')
+    logger.info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    logger.info('  OWA Domain: %s' % config.OWA_DOMAIN)
+    logger.info('  OWA Server: %s' % config.OWA_SERVER)
+    logger.info('  Credentials count: %i' % len(creds_list))
     ret = query_yes_no('Do you want to continue?',default='no')
     if not ret:
         return
@@ -512,13 +525,13 @@ def test_creds_owa(events_filter=None):
 def test_creds_netscaler(events_filter=None):
     creds_list = get_creds_from_timeline(get_timelines(events_filter))
 
-    print_info('**WARNING**')
-    print_info('Too many attempts could lock accounts. Be easy with this feature.')
-    print_info('')
-    print_info('Preparing to test credentials on NetScaler')
-    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
-    print_info('  Netscaler Server: %s' % config.NETSCALER_SERVER)
-    print_info('  Credentials count: %i' % len(creds_list))
+    logger.info('**WARNING**')
+    logger.info('Too many attempts could lock accounts. Be easy with this feature.')
+    logger.info('')
+    logger.info('Preparing to test credentials on NetScaler')
+    logger.info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    logger.info('  Netscaler Server: %s' % config.NETSCALER_SERVER)
+    logger.info('  Credentials count: %i' % len(creds_list))
     ret = query_yes_no('Do you want to continue?',default='no')
     if not ret:
         return
@@ -532,16 +545,16 @@ def test_creds_netscaler(events_filter=None):
 def test_creds_juniper(events_filter=None):
     creds_list = get_creds_from_timeline(get_timelines(events_filter))
 
-    print_info('**WARNING**')
-    print_info('Too many attempts could lock accounts. Be easy with this feature.')
-    print_info('')
-    print_info('Preparing to test credentials on Juniper')
-    print_info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
-    print_info('  Juniper Domain: %s' % config.JUNIPER_DOMAIN)
-    print_info('  Juniper Server: %s' % config.JUNIPER_SERVER)
-    print_info('  Juniper Uri: %s' % config.JUNIPER_URI)
-    print_info('  Juniper Realm: %s' % config.JUNIPER_REALM)
-    print_info('  Credentials count: %i' % len(creds_list))
+    logger.info('**WARNING**')
+    logger.info('Too many attempts could lock accounts. Be easy with this feature.')
+    logger.info('')
+    logger.info('Preparing to test credentials on Juniper')
+    logger.info('  Campaign Name: %s' % config.CAMPAIGN_NAME)
+    logger.info('  Juniper Domain: %s' % config.JUNIPER_DOMAIN)
+    logger.info('  Juniper Server: %s' % config.JUNIPER_SERVER)
+    logger.info('  Juniper Uri: %s' % config.JUNIPER_URI)
+    logger.info('  Juniper Realm: %s' % config.JUNIPER_REALM)
+    logger.info('  Credentials count: %i' % len(creds_list))
     ret = query_yes_no('Do you want to continue?',default='no')
     if not ret:
         return
@@ -673,15 +686,15 @@ def print_email_stats(email, show_geoip=False):
     ef = EventsFilter(email=email)
 
     # Print all user timeline
-    print_title('User timeline.')
+    logger.info('User timeline.')
     print_timeline(ef)
 
     # Print IP addresses used
-    print_title('IP addresses used by this user.')
+    logger.info('IP addresses used by this user.')
     print_targets_ip(ef,from_timeline=True,show_geoip=show_geoip)
 
     # Print submitted credentials
-    print_title('Credentials sent by this user.')
+    logger.info('Credentials sent by this user.')
     print_creds(ef)
 
 def generate_report():
@@ -885,8 +898,10 @@ if hasattr(args, 'targets_csv'):
     config.EMAILS_PATH = args.targets_csv
 
 DEBUG = args.debug
+if DEBUG == True:
+    logger.setLevel('DEBUG')
 
-print_debug('Arguments: ' + str(args))
+logger.debug('Arguments: ' + str(args))
 
 if args.action == 'group':
     if args.add:
