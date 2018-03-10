@@ -9,7 +9,7 @@ Gophish command line interface to quickly setup a campaign.
 @license: MIT License
 @contact: mdube@gosecure.ca
 
-Copyright (c) 2017, Gosecure
+Copyright (c) 2018, Gosecure
 All rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,7 +31,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 
-						   
 import sys
 import csv
 import json
@@ -48,6 +47,7 @@ from modules.creds import Credentials
 from modules.owa import OwaCredsTester
 from modules.netscaler import NetscalerCredsTester
 from modules.juniper import JuniperCredsTester
+from modules.report import GophishReporter
 
 import config
 
@@ -413,6 +413,7 @@ def get_timelines(events_filter=None):
         timeline += c.timeline
     if events_filter is not None:
         timeline = filter_timeline(timeline, events_filter)
+    print_debug('  Got %i events' % (len(timeline)))
     return timeline
 
 def get_results(events_filter=None):
@@ -423,6 +424,7 @@ def get_results(events_filter=None):
         results += c.results
     if events_filter is not None:
         results = filter_results(results, events_filter)
+    print_debug('  Got %i events' % (len(results)))
     return results
 
 def print_timeline(events_filter=None):
@@ -682,6 +684,12 @@ def print_email_stats(email, show_geoip=False):
     print_title('Credentials sent by this user.')
     print_creds(ef)
 
+def generate_report():
+    timelines = get_timelines()
+    results = get_results()
+    reporter = GophishReporter(timelines, results)
+    reporter.generate()
+
 
 # Get args
 usage = 'usage: %prog action [options]'
@@ -851,6 +859,24 @@ p_stats_param.add_argument('--geoip', action='store_true', dest='geoip', default
 p_stats_param.add_argument('--users', action='store_true', dest='users', default=None, \
                           help='Show associated users.')
 
+
+# Report
+p_report_desc = '''\
+types:
+    UINT    Unsigned Integer value.
+    STR     String.
+    FILE    Path to a file.
+'''
+p_report_epilog = '''\
+Example: 
+'''
+p_report = subparsers.add_parser('report', description=p_report_desc, epilog=p_report_epilog, 
+                              formatter_class=argparse.RawDescriptionHelpFormatter, 
+                              help='Generate report (currently multiple CSV files).')
+#p_report_action = p_report.add_argument_group("Action")
+
+#p_report_param = p_report.add_argument_group("Parameters")
+
 args = parser.parse_args()
 
 # Overwrite config variables
@@ -908,6 +934,8 @@ elif args.action == 'stats':
         print_email_stats(args.email, show_geoip=args.geoip)
     else:
         parser.print_help()
+elif args.action == 'report':
+    generate_report()
 else:
     parser.print_help()
 
