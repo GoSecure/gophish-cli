@@ -135,7 +135,7 @@ $ python3 ./gophish-cli.py campaign --results
 To print credentials
 
 ```
-$ python3 ./gophish-cli.py campaign --print-creds
+$ python3 ./gophish-cli.py creds --print
 +---------------------+--------------+------------+
 | Email               | User         | Pass       |
 +---------------------+--------------+------------+
