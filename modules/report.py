@@ -133,7 +133,7 @@ class GophishReporter():
         for root, dirs, fnames in os.walk(path):
             for fname in fnames:
                 filepath = os.path.join(root, fname)
-                with open(filepath, 'r') as f:
+                with open(filepath, 'r', encoding = "ISO-8859-1") as f:
                     for line in f:
                         if search in line:
                             res.append(line)
