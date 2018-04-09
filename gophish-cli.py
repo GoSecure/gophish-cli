@@ -45,13 +45,21 @@ from gophish import Gophish
 from gophish.models import *
 from prettytable import PrettyTable
 
+try:
+    import config
+except:
+    print("config.py file not created. Please RTFM.")
+    exit(1)
+
 from modules.creds import Credentials
-from modules.owa import OwaCredsTester
 from modules.netscaler import NetscalerCredsTester
 from modules.juniper import JuniperCredsTester
 from modules.report import GophishReporter
 
-import config
+try:
+    from modules.owa import OwaCredsTester
+except:
+    print("exchangelib is not installed. --test-owa will fail.")
 
 # Make sure you run python3
 if sys.version_info < (3, 2, 0):
