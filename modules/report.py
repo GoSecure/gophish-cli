@@ -229,6 +229,7 @@ class GophishReporter():
         self.stats['clicked_link_ct'] = len([x.email for x in self.timeline if x.message == 'Clicked Link'])
         self.stats['submitted_data_ct'] = len([x.email for x in self.timeline if x.message == 'Submitted Data'])
 
+        self.stats['unique_email_sent_ct'] = len(list(set([x.email for x in self.timeline if x.message == 'Email Sent'])))
         self.stats['unique_email_opened_ct'] = len(list(set([x.email for x in self.timeline if x.message == 'Email Opened'])))
         self.stats['unique_clicked_link_ct'] = len(list(set([x.email for x in self.timeline if x.message == 'Clicked Link'])))
         self.stats['unique_submitted_data_ct'] = len(list(set([x.email for x in self.timeline if x.message == 'Submitted Data'])))
@@ -276,8 +277,8 @@ class GophishReporter():
         pass
 
     def extract_conversion_stats(self):
-        self.stats['conversion_receive_to_open'] = round(self.stats['email_opened_ct'] / self.stats['email_sent_ct'] * 100, 2)
-        self.stats['conversion_email_to_click'] = round(self.stats['unique_clicked_link_ct'] / self.stats['email_opened_ct'] * 100, 2)
+        self.stats['conversion_receive_to_open'] = round(self.stats['unique_email_opened_ct'] / self.stats['unique_email_sent_ct'] * 100, 2)
+        self.stats['conversion_email_to_click'] = round(self.stats['unique_clicked_link_ct'] / self.stats['unique_email_opened_ct'] * 100, 2)
         self.stats['conversion_page_to_creds'] = round(self.stats['unique_submitted_data_ct'] / self.stats['unique_clicked_link_ct']  * 100, 2)
 
         if self.enable_apache and self.enable_empire:
@@ -307,8 +308,6 @@ class GophishReporter():
         for pos in position_list:
             position_results = [obj for obj in self.results if obj.position == pos]
             pos_total = len(position_results)
-            if pos_total == 1:
-                print(position_results)
             pos_scheduled = len([obj for obj in position_results if obj.status == 'Scheduled'])
             pos_email_sent = len([obj for obj in position_results if obj.status == 'Email Sent'])
             pos_email_open = len([obj for obj in position_results if obj.status == 'Email Opened'])
@@ -321,6 +320,14 @@ class GophishReporter():
                                            'email_open': pos_email_open, \
                                            'link_clicked': pos_link_clicked, \
                                            'submitted_data': pos_submitted_data}
+
+    def extract_stats_percentage(self):
+        self.stats['stats_email_opened'] = round(self.stats['unique_email_opened_ct'] / \
+                                                self.sendgrid_stats['delivered'] * 100, 2)
+        self.stats['stats_clicked_link'] = round(self.stats['unique_clicked_link_ct'] / \
+                                                self.sendgrid_stats['delivered'] * 100, 2)
+        self.stats['stats_submitted_data'] = round(self.stats['unique_submitted_data_ct'] / \
+                                                self.sendgrid_stats['delivered'] * 100, 2)
 
     def print_position_stats(self):
         title = ['Position', 'Scheduled', 'Email Sent', 'Email Open', \
@@ -370,6 +377,7 @@ class GophishReporter():
         if self.enable_cobalt: self.extract_cobaltstrike_stats()
         self.extract_conversion_stats()
         self.extract_position_stats()
+        if self.enable_sendgrid: self.extract_stats_percentage()
 
         logger.info("Printing Report")
         print("Raw Data: ")
@@ -381,6 +389,7 @@ class GophishReporter():
         print("    Email opened: %s" % self.stats['email_opened_ct'])
         print("    Clicked Link: %s" % self.stats['clicked_link_ct'])
         print("    Submitted Data: %s" % self.stats['submitted_data_ct'])
+        print("    Unique Email sent: %s" % self.stats['unique_email_sent_ct'])
         print("    Unique Email opened: %s" % self.stats['unique_email_opened_ct'])
         print("    Unique Clicked Link: %s" % self.stats['unique_clicked_link_ct'])
         print("    Unique Submitted Data: %s" % self.stats['unique_submitted_data_ct'])
@@ -466,10 +475,10 @@ class GophishReporter():
         print("Analyzed Data: ")
         print("")
         print("  Conversion Percentage:")
-        print("    Email Received (%s) -> Email Opened (%s): %s" % (self.stats['email_sent_ct'], 
-                                                                    self.stats['email_opened_ct'], 
+        print("    Email Received (%s) -> Email Opened (%s): %s" % (self.stats['unique_email_sent_ct'], 
+                                                                    self.stats['unique_email_opened_ct'], 
                                                                     self.stats['conversion_receive_to_open']))
-        print("    Email Open (%s) -> Link Clicked (%s): %s" % (self.stats['email_opened_ct'], 
+        print("    Email Open (%s) -> Link Clicked (%s): %s" % (self.stats['unique_email_opened_ct'], 
                                                                 self.stats['unique_clicked_link_ct'],
                                                                 self.stats['conversion_email_to_click']))
         print("    Page Visit (%s) -> Send Credentials (%s): %s" % (self.stats['unique_clicked_link_ct'], 
@@ -485,3 +494,15 @@ class GophishReporter():
                                                                                     self.stats.get('cs_agents_unique_usernames_ct', None),
                                                                                     self.stats.get('conversion_dl_to_cs_exec', None)))
         print("")
+        if self.enable_sendgrid:
+            print("  Events statistics (based on the number of delivered email from Sendgrid): ")
+            print("    Unique Email Opened (gophish unique opened (%s) / sendgrid delivered (%s) * 100): %s" % (self.stats.get('unique_email_opened_ct'),
+                                                                                                                self.sendgrid_stats['delivered'],
+                                                                                                                self.stats.get('stats_email_opened', None)))
+            print("    Unique Clicked Link (gophish unique clicked link (%s) / sendgrid delivered (%s) * 100): %s" % (self.stats.get('unique_clicked_link_ct', None),
+                                                                                                                      self.sendgrid_stats['delivered'],
+                                                                                                                      self.stats.get('stats_clicked_link', None)))
+            print("    Unique Submitted Data (gophish unique submitted data (%s) / sendgrid delivered (%s) * 100): %s" % (self.stats.get('unique_submitted_data_ct', None),
+                                                                                                                          self.sendgrid_stats['delivered'],
+                                                                                                                          self.stats.get('stats_submitted_data', None)))
+            print("")

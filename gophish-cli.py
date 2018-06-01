@@ -959,6 +959,8 @@ elif args.action == 'stats':
         parser.print_help()
 elif args.action == 'report':
     generate_report()
+    save_campaigns()
+    print_targets_ip(show_geoip=True, show_users=False)
 else:
     parser.print_help()
 
