@@ -15,11 +15,27 @@ To install `gophish-cli`, simply run the command:
 
 ```bash
 git clone --recursive https://github.com/gosecure/gophish-cli
-cd api-client-python
+cd gophish-cli/api-client-python
 pip3 install -r requirements.txt --user
 python3 ./setup.py install --user
 cd ..
 pip3 install -r requirements.txt --user
+```
+
+To install `gophish-cli` in a virtualenv, run:
+
+```bash
+git clone --recursive https://github.com/gosecure/gophish-cli
+
+virtualenv ./gophish-cli
+cd gophish-cli
+source bin/activate
+
+cd api-client-python
+pip3 install -r requirements.txt
+python3 ./setup.py install
+cd ..
+pip3 install -r requirements.txt
 ```
 
 To test harvested credentials on OWA, you will also need to install the [exchangelib](https://github.com/ecederstrand/exchangelib/) submodule.
