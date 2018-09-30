@@ -277,9 +277,16 @@ class GophishReporter():
         pass
 
     def extract_conversion_stats(self):
-        self.stats['conversion_receive_to_open'] = round(self.stats['unique_email_opened_ct'] / self.stats['unique_email_sent_ct'] * 100, 2)
-        self.stats['conversion_email_to_click'] = round(self.stats['unique_clicked_link_ct'] / self.stats['unique_email_opened_ct'] * 100, 2)
-        self.stats['conversion_page_to_creds'] = round(self.stats['unique_submitted_data_ct'] / self.stats['unique_clicked_link_ct']  * 100, 2)
+        try:
+            self.stats['conversion_receive_to_open'] = None
+            self.stats['conversion_email_to_click'] = None
+            self.stats['conversion_page_to_creds'] = None
+
+            self.stats['conversion_receive_to_open'] = round(self.stats['unique_email_opened_ct'] / self.stats['unique_email_sent_ct'] * 100, 2)
+            self.stats['conversion_email_to_click'] = round(self.stats['unique_clicked_link_ct'] / self.stats['unique_email_opened_ct'] * 100, 2)
+            self.stats['conversion_page_to_creds'] = round(self.stats['unique_submitted_data_ct'] / self.stats['unique_clicked_link_ct']  * 100, 2)
+        except ZeroDivisionError:
+            pass
 
         if self.enable_apache and self.enable_empire:
             self.stats['conversion_dl_to_empire_exec'] = round(self.stats['empire_agents_unique_usernames_ct'] / \
