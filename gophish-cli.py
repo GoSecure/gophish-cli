@@ -242,15 +242,47 @@ def create_groups():
     group_to_create = []
     i = 0
     targets = []
-    with open(config.EMAILS_PATH, 'r') as fh:
-        for line in fh:
+    VALID_HEADER = ['First Name', 'Last Name', 'Position', 'Email']
+    MANDATORY_HEADER = ['Email']
+    header_pos = {}
+    with open(config.EMAILS_PATH, 'r', newline='', encoding='utf-8') as fh:
+        reader = csv.reader(fh, delimiter=',')
+        header_row = reader.__next__()
+
+        # Check header validity and position
+        for header in header_row:
+            if header not in VALID_HEADER:
+                print("Invalid headers. The first line should be one or more item(s) of this list: ['First Name', 'Last Name', 'Position', 'Email']")
+                return 1
+
+            header_pos[header] = header_row.index(header)
+
+        # Check mandatory headers
+        for m_header in MANDATORY_HEADER:
+            if m_header not in header_row:
+                print("Missing Mandatory Header. Make sure the Email header exist.")
+                return 1
+
+        for row in reader:
             # Create file when enough email are read
             if (i % config.GROUP_SIZE) == 0 and i != 0:
                 group_to_create.append([i, config.GROUP_SIZE, config.CAMPAIGN_NAME, targets])
                 targets = []
-            targets.append(User(email=str(line.strip())))
+
+            fname = ''
+            lname = ''
+            position = ''
+            if hasattr(header_pos, 'First Name'):
+                fname = row[header_pos['First Name']]
+            if hasattr(header_pos, 'Last Name'):
+                lname = row[header_pos['Last Name']]
+            if hasattr(header_pos, 'Position'):
+                position = row[header_pos['Position']]
+            email = row[header_pos['Email']]
+
+            targets.append(User(email=email,first_name=fname,last_name=lname,position=position))
             i=i+1
-    
+
     if len(targets) > 0:
         group_to_create.append([i+config.GROUP_SIZE, config.GROUP_SIZE, config.CAMPAIGN_NAME, targets])
 
@@ -901,9 +933,13 @@ p_report = subparsers.add_parser('report', description=p_report_desc, epilog=p_r
 args = parser.parse_args()
 
 # Overwrite config variables
-if hasattr(args, 'targets_csv'):
+if hasattr(args, 'targets_csv') and args.targets_csv is not None:
     print('Overwritting config.EMAILS_PATH from --targets-csv')
     config.EMAILS_PATH = args.targets_csv
+
+if hasattr(args, 'name') and args.name is not None:
+    print('Overwritting config.CAMPAIGN_NAME from --name')
+    config.CAMPAIGN_NAME = args.name
 
 DEBUG = args.debug
 if DEBUG == True:
